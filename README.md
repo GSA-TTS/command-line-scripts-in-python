@@ -422,8 +422,77 @@ When I run `check` on `libs5`, I get:
 25-Jan-23 11:42:38:ERROR:We're missing data in column 'name'
 ```
 
-The code to check for missing data is in [commit ]().
+The code to check for missing data is in [commit d9f9e3c6](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/d9f9e3c612f5f04381fd61a2486f8b4467c3c01b).
 
 # Moving on to unit testing
 
-At this point, we've created some test data (the CSV files)
+At this point, we've created some test data (the CSV files), and we can run those tests on the command line. This is... *authentic*, but it is not *automated*. What we need is for our code to be able to be automatically checked every time we commit to our repository with a GitHub action. That way, we can be confident that we never regress as things change in the future.
+
+So, that's going to be my next step. I'm going to use `pytest`. (Here's an [overview on unit testing](https://realpython.com/python-testing/) in Python as background.) 
+
+I'll create a file called `test_check.py`. In here, I'm now going to start writing tests for all of the functions that I wrote up to this point. In this way, I'm essentially going to automate the work that I was doing manually up until this point.
+
+First, I'll test `check_file_exists` and `check_filename_ends_with`. 
+
+```python
+import os
+target = __import__("check")
+
+# Use the tmp_path fixture.
+# https://docs.pytest.org/en/7.1.x/how-to/tmp_path.html
+def test_check_file_exists(tmp_path):
+    filename = os.path.join(tmp_path, "_test.md")
+    open(filename, mode="w")
+    result = target.check_file_exists(filename)
+    os.remove(filename)
+    assert result, "Did not find test file {}".format(filename)
+
+def test_non_existent_file(tmp_path):
+    filename = os.path.join(tmp_path, "_test.md")
+    open(filename, mode="w")
+    result = target.check_file_exists(os.path.join(tmp_path, "bob.txt"))
+    os.remove(filename)
+    assert not result, "Found a file that does not exist."
+
+
+def test_check_filename_ends_with(tmp_path):
+    filename = os.path.join(tmp_path, "_test.csv")
+    open(filename, mode="w")
+    result = target.check_filename_ends_with(filename, "csv")
+    os.remove(filename)
+    assert result, "Filename '{}' does not end with csv.".format(filename)
+
+def test_bad_filename_extension(tmp_path):
+    filename = os.path.join(tmp_path, "_test.md")
+    open(filename, mode="w")
+    result = target.check_filename_ends_with(filename, "csv")
+    os.remove(filename)
+    assert not result, "Filename '{}' does end with CSV, and it should not.".format(filename)
+```
+
+There are fancy ways to get rid of some of this boilerplate. (That is, the creation and removal of files for each of these tests.) However, I am not going to have so many tests that I want to go down that path right now. I'm happy to have *some* test coverage. In this case, I now know that I have a positive and negative test for each of my file checks.
+
+I can run this from the command line with `pytest`:
+
+```
+pytest test_check.py
+```
+
+and get
+
+```
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ pytest test_check.py 
+=========================================================================
+session starts =========================================================================
+platform linux -- Python 3.10.6, pytest-7.2.1, pluggy-1.0.0
+rootdir: /home/jadudm/git/command-line-scripts-in-python
+collected 4 items                                                                                                                                                                                        
+
+test_check.py ....                                                                                                                                                                                 [100%]
+
+=========================================================================
+4 passed in 0.39s
+=========================================================================
+```
+
+This is in [commit ]().

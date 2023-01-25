@@ -7,7 +7,8 @@ setup(
     install_requires=[
         'click',
         'pandas',
-        'peewee'
+        'peewee',
+        'pytest'
     ],
     entry_points={
         'console_scripts': [
