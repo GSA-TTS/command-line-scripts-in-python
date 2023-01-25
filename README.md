@@ -234,3 +234,52 @@ When I run my script, I now get output that looks like this:
 
 More importantly, I have a file called `check.log`. This file contains the same information. It is an "append" log, meaning that it will continuously grow. I think this is a good idea for now, so that we don't the logs from previous runs. 
 
+This is all in [commit 96e441be](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/96e441be760618616eafa676c66ac29c67b23da0).
+
+# Checking the contents of the CSV
+
+Now, I believe I have a CSV file, and I have some logging in place. I'm ready to load and check the contents of the file. I have five steps I need to take in this part of the process:
+
+3. Are the headers in the CSV the headers I'm expecting, in the correct order?
+4. Are the values in the `fscs_id` column of the right shape?
+5. Does every library have a name?
+6. Does every library have an address?
+7. Does every library have a location tag?
+
+All of these will involve some interaction with [pandas](https://pandas.pydata.org/).
+
+My code, with a header-checker, looks like this:
+
+```python
+...
+import pandas
+...
+
+EXPECTED_HEADERS = ['fscs_id', 'name', 'address', 'tag']
+
+...
+
+def check_headers(df):
+    result = []
+    actual_headers = list(df.columns.values) 
+    for expected, actual in zip(EXPECTED_HEADERS, actual_headers):
+        if not (expected == actual):
+            result.append("Expected header '{}', found '{}'".format(expected, actual))
+    return result
+    
+@click.command()
+@click.argument('filename')
+def cli(filename):
+    ...
+    # Read in the CSV with headers
+    df = pandas.read_csv(filename, header=0)
+    # check_headers will throw specific errors for specific mismatches.
+    result = check_headers(df)
+    if result is not None:
+        for r in result:
+            logger.error(r)
+        sys.exit(-1)
+```
+
+I've decided to follow a pattern of writing helpers that always return *something*. This is important, as it makes (spoiler!) unit testing of these functions easier. So, I read in my CSV as a pandas dataframe, and then pass that frame off to the `check_headers` helper. It goes through the headers, and tells me everywhere it finds a mismtach. I can then report those errors out to the user (and log them), and if I had any errors, I should exit the script.
+
