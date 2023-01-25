@@ -31,7 +31,6 @@ git commit -am "etc..."
 
 Now, I'm about ready to get started. Because I'm going to use [`click`](https://click.palletsprojects.com/en/8.1.x/) to structure the command-line program, I'll be putting my requirements in a `setup.py` file. 
 
-
 ## Setting up a CSV checker
 
 By using Click, I'll be able to implement a series of tools as single scripts. To start, I'm going to implement a tool that checks my input CSV. I'll call it `check.py`.
