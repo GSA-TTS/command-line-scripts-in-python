@@ -596,7 +596,9 @@ def test_found_null():
 
 Again, I should have more tests. But, I at least have covered the code. It would be nice to make sure that a null at the beginning or end of a column is caught, and that every column is correctly checked. 
 
-# Testing the `cli()`
+All of this up to this point is in [commit 4cf36a33](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/4cf36a33c7c86404ae3590aa4a6a845dec7f526e).
+
+## Testing the `cli()`
 
 Because of how the `click` code is structured, it is possible to test the entire CLI. However, because I'm not done with this program (and I didn't do a top-down design), I don't know what I'll need to test for regarding success and failure of `cli()`. (Also, I probably need to revisit my `sys.exit()` calls, and possibly have different exit codes for different exit conditions, so I can test for those exit codes in the unit testing harness.)
 
@@ -604,3 +606,115 @@ Because of how the `click` code is structured, it is possible to test the entire
 
 So, for now, I'm going to pass on testing `cli()`. I have tested all the functions that `cli()` uses, and I 1) have higher confidence in my code, and 2) can now work this into some automation via GitHub Actions (or similar) as part of my development process.
 
+# Talking to the DB
+
+I can read in a CSV, I can make sure it is well formed, and I now have a pandas `DataFrame` (DF) that is ready for mangling. At this point, I want to do the following:
+
+1. I want to add some data to each row in the DF. 
+2. I want to upload some data to a database (if it isn't already there).
+3. I want dump a PDF of some of the information that I added, so it can be distributed easily.
+
+This now feels like a different script---possibly even more than one. I'm going to call my next script `extend.py`. It will use a bunch of the code from `check.py`, but it is a different tool.
+
+This suggests that I'm going to create `test_extend.py` as well, so that I can have unit tests from the beginning. In short, I'm going to repeat the kind of exploration I did above, but I'm going to be a bit more brief, because this is the second time around.
+
+My `extend` function does what it says on the tin.
+
+```python
+import check
+import click
+import os
+import pandas as pd
+from xkcdpass import xkcd_password as xp
+
+from lgr import logger
+
+def add_passphrase(df):
+    # Work on a new dataframe, not the original.
+    new_df = df.copy(deep=True)
+    # https://pypi.org/project/xkcdpass/
+    wordlist = xp.generate_wordlist(wordfile=xp.locate_wordfile(), min_length=5, max_length=8)
+    new_df["passphrase"] = list(map(lambda x: xp.generate_xkcdpassword(wordlist).replace(" ", "-"), df["fscs_id"].values))
+    return new_df
+
+
+@click.command()
+@click.option('--overwrite/--no-overwrite', default=False)
+@click.argument('filename')
+def cli(overwrite, filename):
+    # First, make sure we pass all the checks.
+    if check.check(filename) != 0:
+        # No logging should be needed here; it will be logged by the `check` function.
+        # logger.error("'{}' does not pass checks.".format(filename))
+        return -1
+    # It is safe to read in the CSV, because we ran all our checks first.
+    orig_df = pd.read_csv(filename, header=0)
+    # I want to add a passphrase column. I'll break this out so it is testable.
+    pf_df = add_passphrase(orig_df)
+    # Now, I want to store the extended passphrase locally.
+    # I'll create a new CSV based on the name of the original.
+    new_filename = "extended_" + filename
+    # Let's not overwrite, unless there's a flag telling us to do so.
+    if overwrite and check.check_file_exists(new_filename):
+        logger.info("'{}' removed and new extended CSV written.".format(new_filename))
+        os.remove(new_filename)
+        pf_df.to_csv(new_filename)
+    # If the file exists, and we didn't give permission to overwrite.
+    elif check.check_file_exists(new_filename):
+        logger.error("'{}' already exists; no extended CSV written.".format(new_filename))
+        return -1
+    # If the file doesn't exist, write it.
+    elif not check.check_file_exists(new_filename):
+        pf_df.to_csv(new_filename)
+    return 0
+```
+
+Why am I doing this one piece at a time? ultimately, I want to be able to build small tools that transform my data in small, predictable ways. I do not want one large, complex program. By having `extend` take in the CSV that was processed by `check`, I can then produce a new CSV as a result. This "new" CSV will have one additional column. It is possible, then, to make sure it is correct (as we go into the next tool), and it is also possible for the user to evaluate the output with their eyes. If I did everything in one script, this would become invisible, and errors would be hard to debug. (And, the tooling would be harder to maintain.)
+
+Now, when I say `extend libs1.csv`, I get a new file, `extended_libs1.csv`. The original looks like this:
+
+```
+fscs_id,name,address,tag
+OH0153,"MT VERNON & KNOX COUNTY, PUBLIC LIBRARY OF","201 N. MULBERRY ST., MT. VERNON, OH 43050",circulation desk
+KY0069,"MADISON COUNTY PUBLIC LIBRARY","507 WEST MAIN STREET, RICHMOND, KY 40475",networking closet
+GA0022,"FULTON COUNTY LIBRARY SYSTEM","ONE MARGARET MITCHELL SQUARE, ATLANTA, GA 30303",above door
+```
+
+and the extended file looks like
+
+```
+,fscs_id,name,address,tag,passphrase
+0,OH0153,"MT VERNON & KNOX COUNTY, PUBLIC LIBRARY OF","201 N. MULBERRY ST., MT. VERNON, OH 43050",circulation desk,wrecking-perky-arguably-wrath-abide-harbor
+1,KY0069,MADISON COUNTY PUBLIC LIBRARY,"507 WEST MAIN STREET, RICHMOND, KY 40475",networking closet,posture-headlamp-swimmer-skimming-ashamed-extinct
+2,GA0022,FULTON COUNTY LIBRARY SYSTEM,"ONE MARGARET MITCHELL SQUARE, ATLANTA, GA 30303",above door,spotty-uncut-collar-wisdom-dismiss-bobbing
+```
+
+I run all the checks (from `check.py`), add a passphrase column, and then write out the extended CSV. In order to overwrite an existing "extended" CSV, the user must explicitly say that they want to by using the `--overwrite` flag. On the command line, this looks like:
+
+```
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ extend libs1.csv
+25-Jan-23 15:51:33:ERROR:'extended_libs1.csv' already exists; no extended CSV written.
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ extend --no-overwrite libs1.csv
+25-Jan-23 15:51:42:ERROR:'extended_libs1.csv' already exists; no extended CSV written.
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ extend --overwrite libs1.csv
+25-Jan-23 15:51:44:INFO:'extended_libs1.csv' removed and new extended CSV written.
+```
+
+And, while I have more testing to do, at the least I can test my function that adds a new column to the pandas DF.
+
+```python
+import check
+import test_check
+import pandas as pd
+target = __import__("extend")
+
+def test_add_passphrase():
+    new_df = target.add_passphrase(test_check.good_df)
+    expected = check.EXPECTED_HEADERS + ["passphrase"]
+    assert len(check.check_headers(new_df, expected)) == 0
+    assert len(check.check_any_nulls(new_df)) == 0
+```
+
+I'm also pulling in my test module for check, so I can reuse some test data. This may make my tests fragile in the long run (if I change the test data in one module, it might break other tests.) But, if the shape of the data changes, then it is likely that lots of things will break... and, perhaps it is good that other tests break, too. (Better tests break than production code...)
+
+This is in [commit ]().

@@ -1,5 +1,5 @@
 import click
-import pandas
+import pandas as pd
 import re
 import sys
 
@@ -17,10 +17,10 @@ def check_file_exists(filename):
 def check_filename_ends_with(filename, ext):
     return filename.endswith(ext)
 
-def check_headers(df):
+def check_headers(df, expected_headers):
     results = []
     actual_headers = list(df.columns.values) 
-    for expected, actual in zip(EXPECTED_HEADERS, actual_headers):
+    for expected, actual in zip(expected_headers, actual_headers):
         if not (expected == actual):
             results.append({"expected": expected, "actual": actual})
     return results
@@ -42,42 +42,46 @@ def check_any_nulls(df):
     actual_headers = list(df.columns.values) 
     for header in actual_headers:
         column = list(df.isna()[header])
+        # https://stackoverflow.com/questions/35784074/does-python-have-andmap-ormap
         anymap = any(column)
         if anymap:
             found_nulls.append(header)
     return found_nulls
 
-@click.command()
-@click.argument('filename')
-def cli(filename):
+def check(filename):
     does_file_exist = check_file_exists(filename)
     if not does_file_exist:
         logger.error("File '{}' does not exist.".format(filename))
-        sys.exit(-1)
+        return -1
     does_filename_end_with = check_filename_ends_with(filename, "csv")
     if not does_filename_end_with:
         logger.error("{} does not end with CSV.".format(filename))
-        sys.exit(-1)
+        return -1
     # Read in the CSV with headers
-    df = pandas.read_csv(filename, header=0)
+    df = pd.read_csv(filename, header=0)
     # check_headers will throw specific errors for specific mismatches.
     r3 = check_any_nulls(df)
     if len(r3) != 0:
         for r in r3:
             logger.error("We're missing data in column '{}'".format(r))
-        sys.exit(-1)
+        return -1
     # https://stackoverflow.com/questions/30487993/python-how-to-check-if-two-lists-are-not-empty
     # Checking lists involves truthiness and falsiness of []. I'll keep it simple.
     # And, more importantly... make sure it works. I'll check the list length.
-    r1 = check_headers(df)
+    r1 = check_headers(df, EXPECTED_HEADERS)
     if len(r1) != 0:
         for r in r1:
             logger.error("Expected header '{}', found '{}'.".format(r["expected"], r["actual"]))
-        sys.exit(-1)
+        return -1
     r2 = check_library_ids(df)
     if len(r2) != 0:
         for r in r2:
             logger.error("{} is not a valid library ID.".format(r))
-        sys.exit(-1)
+        return -1
     
     return 0
+
+@click.command()
+@click.argument('filename')
+def cli(filename):
+    return check(filename)

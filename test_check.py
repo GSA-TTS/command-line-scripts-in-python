@@ -43,7 +43,7 @@ good_data = {
 good_df = pd.DataFrame(good_data)
 
 def test_check_headers_1():
-    result = target.check_headers(good_df)
+    result = target.check_headers(good_df, target.EXPECTED_HEADERS)
     # The result is a list of bad headers. So, it should be empty in this test.
     assert len(result) == 0, "Bad data frame in test_check_headers"
 
@@ -55,7 +55,7 @@ def test_check_headers_2():
         "tag": ["tag 1", "tag 2"]
     }
     df = pd.DataFrame(bad_data)
-    result = target.check_headers(df)
+    result = target.check_headers(df, target.EXPECTED_HEADERS)
     # The result is a list of bad headers. So, it should be empty in this test.
     assert result == [{"expected": "address", "actual": "addr"}], "Failed to find bad header"
 
