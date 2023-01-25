@@ -126,7 +126,7 @@ If any of these things are not true, then I don't want to work with the data. Th
 
 I'm going to write two small helper functions to do my checking, and my "main" function will call them, printing an error if one comes up, and it will then exit. We just don't keep going if an error is present: we report and give up.
 
-This code is in [commit ]()
+This code is in [commit d9580f71](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/d9580f71470046615578ed91cea819f64ebafde4).
 
 ```python
 import click
@@ -154,3 +154,83 @@ def cli(filename):
         print("{} does not end with CSV.".format(filename))
         sys.exit(-1)
 ```
+
+Now, if I run this, I can see that things are working as expected:
+
+```bash
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ check DOES-NOT-EXIST.txt
+File 'DOES-NOT-EXIST.txt' does not exist.
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ check README.md
+README.md does not end with CSV.
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ check libs1.csv
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$
+```
+
+# Logging! Oh no!
+
+Berore I go any further, I've realized something. This is a mistake I've made too many times to count. At the start, I think "I'll just print this information out." And, then, later, I realize... I wish I had that information in a log file. Why? Because print statements are... messy. Fragile. *Not good enough.* 
+
+So, the next thing I'm going to do is integrate logging into my application. I'm going to use the Python built-in logger, and I'm going to do two things from the start:
+
+1. I'm going to log to a file and to the console.
+2. I'm going to put it in a separate file, so that I can use it in all of the scripts I'm writing to support my library friends.
+
+I'll call this new file `lgr.py`. Why? Because it is bad if you name a Python file the same as an existing Python library... so, `logger.py` would conflict with the built-in library of the same name. That's *very bad*. Trust me; I've done it before.
+
+```python
+import logging
+
+# Define the custom logger
+logger = logging.getLogger(__name__)
+# Set up a console and file logger
+stream_handler = logging.StreamHandler()
+file_handler = logging.FileHandler('check.log', mode='a')
+# Send warnings and up to the console; send everything to the file.
+stream_handler.setLevel(logging.WARN)
+file_handler.setLevel(logging.DEBUG)
+# Define our format
+format = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s', datefmt='%d-%b-%y %H:%M:%S')
+stream_handler.setFormatter(format)
+file_handler.setFormatter(format)
+# Add the handlers
+logger.addHandler(stream_handler)
+logger.addHandler(file_handler)
+```
+
+Now, I'll add an import to my `check.py`, and rewrite my `print` statements as logging statements. They'll be `error`s.
+
+```python
+import click
+import sys
+
+from lgr import logger
+from pathlib import Path
+
+... removed helpers ...
+
+@click.command()
+@click.argument('filename')
+def cli(filename):
+    does_file_exist = check_file_exists(filename)
+    if not does_file_exist:
+        logger.error("File '{}' does not exist.".format(filename))
+        sys.exit(-1)
+    does_filename_end_with = check_filename_ends_with(filename, "csv")
+    if not does_filename_end_with:
+        logger.error("{} does not end with CSV.".format(filename))
+        sys.exit(-1)
+```
+
+When I run my script, I now get output that looks like this:
+
+```bash
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ check DOES-NOT-EXIST.txt
+25-Jan-23 09:15:05:ERROR:File 'DOES-NOT-EXIST.txt' does not exist.
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ check README.md
+25-Jan-23 09:15:08:ERROR:README.md does not end with CSV.
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ check libs1.csv
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ 
+```
+
+More importantly, I have a file called `check.log`. This file contains the same information. It is an "append" log, meaning that it will continuously grow. I think this is a good idea for now, so that we don't the logs from previous runs. 
+

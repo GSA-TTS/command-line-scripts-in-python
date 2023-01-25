@@ -1,6 +1,8 @@
 import click
-from pathlib import Path
 import sys
+
+from lgr import logger
+from pathlib import Path
 
 # https://stackoverflow.com/questions/82831/how-do-i-check-whether-a-file-exists-without-exceptions
 def check_file_exists(filename):
@@ -16,9 +18,9 @@ def check_filename_ends_with(filename, ext):
 def cli(filename):
     does_file_exist = check_file_exists(filename)
     if not does_file_exist:
-        print("File '{}' does not exist.".format(filename))
+        logger.error("File '{}' does not exist.".format(filename))
         sys.exit(-1)
     does_filename_end_with = check_filename_ends_with(filename, "csv")
     if not does_filename_end_with:
-        print("{} does not end with CSV.".format(filename))
+        logger.error("{} does not end with CSV.".format(filename))
         sys.exit(-1)
