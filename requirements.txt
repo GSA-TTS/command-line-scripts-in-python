@@ -1,4 +1,0 @@
-click
-wheel
-peewee
-pandas
