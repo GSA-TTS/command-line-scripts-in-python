@@ -157,7 +157,7 @@ def cli(filename):
 
 Now, if I run this, I can see that things are working as expected:
 
-```bash
+```
 (venv) jadudm@poke:~/git/command-line-scripts-in-python$ check DOES-NOT-EXIST.txt
 File 'DOES-NOT-EXIST.txt' does not exist.
 (venv) jadudm@poke:~/git/command-line-scripts-in-python$ check README.md
@@ -223,7 +223,7 @@ def cli(filename):
 
 When I run my script, I now get output that looks like this:
 
-```bash
+```
 (venv) jadudm@poke:~/git/command-line-scripts-in-python$ check DOES-NOT-EXIST.txt
 25-Jan-23 09:15:05:ERROR:File 'DOES-NOT-EXIST.txt' does not exist.
 (venv) jadudm@poke:~/git/command-line-scripts-in-python$ check README.md
@@ -363,7 +363,7 @@ G0022,"FULTON COUNTY LIBRARY SYSTEM","ONE MARGARET MITCHELL SQUARE, ATLANTA, GA 
 
 Actually, *three* bad IDs. What do we get? 
 
-```bash
+```
 (venv) jadudm@poke:~/git/command-line-scripts-in-python$ check libs4.csv 
 25-Jan-23 10:06:39:DEBUG:OHO0153 did not match
 25-Jan-23 10:06:39:DEBUG:KENTUCKY0069 did not match
@@ -373,6 +373,57 @@ Actually, *three* bad IDs. What do we get?
 25-Jan-23 10:06:39:ERROR:G0022 is not a valid library ID.
 ```
 
-and, our trusty `libs1.csv` still says nothing; it checks/passes our tests. This code is in [commit ]().
+and, our trusty `libs1.csv` still says nothing; it checks/passes our tests. This code is in [commit d928a4f9](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/d928a4f9a74e8d8645d8ad8d71580551f30b222a).
 
+### Checking the other columns exist
 
+For the other columns, I'm not going to try and validate addresses or anything like that. I will, however, make sure the dataframe has values for every column of every row. In fact, to keep things easy, I can actually check every column of every row... and, now that I think about it, *I should check there is data before checking the contents of the data*. So, although I'm writing this *after* my ID checks, I'll move it up in my list of checks so it happens *before* checking the shape/content of the FSCS Ids.
+
+```
+...
+
+def check_any_nulls(df):
+    found_nulls = False
+    actual_headers = list(df.columns.values) 
+    for header in actual_headers:
+        column = list(df.isna()[header])
+        anymap = any(column)
+        if anymap:
+            found_nulls.append(header)
+    return found_nulls
+
+@click.command()
+@click.argument('filename')
+def cli(filename):
+    ...
+    r3 = check_any_nulls(df)
+    if len(r3) != 0:
+        for r in r3:
+            logger.error("We're missing data in column '{}'".format(r))
+        sys.exit(-1)
+    ...
+```
+
+Now, I can create `libs5.csv`, and remove some data:
+
+```
+fscs_id,name,address,tag
+OH0153,"MT VERNON & KNOX COUNTY, PUBLIC LIBRARY OF","201 N. MULBERRY ST., MT. VERNON, OH 43050",circulation desk
+KY0069,,"507 WEST MAIN STREET, RICHMOND, KY 40475",networking closet
+GA0022,"FULTON COUNTY LIBRARY SYSTEM","ONE MARGARET MITCHELL SQUARE, ATLANTA, GA 30303",above door
+,"FULTON COUNTY LIBRARY SYSTEM","ONE MARGARET MITCHELL SQUARE, ATLANTA, GA 30303",above door
+```
+
+When I run `check` on `libs5`, I get:
+
+```
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ check libs5.csv 
+25-Jan-23 11:42:38:ERROR:We're missing data in column 'fscs_id'
+25-Jan-23 11:42:38:ERROR:We're missing data in column 'name'
+```
+
+The code to check for missing data is in [commit ]().
+
+# Moving on to unit testing
+
+At this point, we've created some test data (the CSV files)

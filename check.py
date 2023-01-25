@@ -37,6 +37,16 @@ def check_library_ids(df):
             results.append(id)
     return results
 
+def check_any_nulls(df):
+    found_nulls = []
+    actual_headers = list(df.columns.values) 
+    for header in actual_headers:
+        column = list(df.isna()[header])
+        anymap = any(column)
+        if anymap:
+            found_nulls.append(header)
+    return found_nulls
+
 @click.command()
 @click.argument('filename')
 def cli(filename):
@@ -52,6 +62,11 @@ def cli(filename):
     df = pandas.read_csv(filename, header=0)
     # check_headers will throw specific errors for specific mismatches.
     r1 = check_headers(df)
+    r3 = check_any_nulls(df)
+    if len(r3) != 0:
+        for r in r3:
+            logger.error("We're missing data in column '{}'".format(r))
+        sys.exit(-1)
     # https://stackoverflow.com/questions/30487993/python-how-to-check-if-two-lists-are-not-empty
     # Checking lists involves truthiness and falsiness of []. I'll keep it simple.
     # And, more importantly... make sure it works. I'll check the list length.
