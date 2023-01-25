@@ -104,6 +104,53 @@ KY0069,"MADISON COUNTY PUBLIC LIBRARY","507 WEST MAIN STREET, RICHMOND, KY 40475
 GA0022,"FULTON COUNTY LIBRARY SYSTEM","ONE MARGARET MITCHELL SQUARE, ATLANTA, GA 30303",above door
 ```
 
-This CSV is called `libs1.csv`, and first appears in [commit ]().
+This CSV is called `libs1.csv`, and first appears in [commit 8525a749](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/8525a749938d6af6f38626b3a126fcb23a0d96b7).
 
+# Checking the CSV
 
+The first thing I want to do whenever I'm working with data that a user produces (directly or indirectly) is to make sure it is well-formed and as correct as possible. *Trust noone.* 
+
+In this case, I'm going to need my script to check a few things:
+
+1. If the user is providing a filename on the command line, does the file exist?
+2. Does the filename provided end in `.csv`?
+3. Are the headers in the CSV the headers I'm expecting, in the correct order?
+4. Are the values in the `fscs_id` column of the right shape?
+5. Does every library have a name?
+6. Does every library have an address?
+7. Does every library have a location tag?
+
+If any of these things are not true, then I don't want to work with the data. The user needs to fix their CSV before proceeding. And, as a programmer, I don't want to keep "looking over my shoulder" while working on my data processing... I need to be able to assume the inputs are *correct*. 
+
+## Checking for the file and filename
+
+I'm going to write two small helper functions to do my checking, and my "main" function will call them, printing an error if one comes up, and it will then exit. We just don't keep going if an error is present: we report and give up.
+
+This code is in [commit ]()
+
+```python
+import click
+from pathlib import Path
+import sys
+
+# https://stackoverflow.com/questions/82831/how-do-i-check-whether-a-file-exists-without-exceptions
+def check_file_exists(filename):
+    file = Path(filename)
+    return file.is_file()
+
+# https://stackoverflow.com/questions/10873777/in-python-how-can-i-check-if-a-filename-ends-in-html-or-files
+def check_filename_ends_with(filename, ext):
+    return filename.endswith(ext)
+
+@click.command()
+@click.argument('filename')
+def cli(filename):
+    does_file_exist = check_file_exists(filename)
+    if not does_file_exist:
+        print("File '{}' does not exist.".format(filename))
+        sys.exit(-1)
+    does_filename_end_with = check_filename_ends_with(filename, "csv")
+    if not does_filename_end_with:
+        print("{} does not end with CSV.".format(filename))
+        sys.exit(-1)
+```
