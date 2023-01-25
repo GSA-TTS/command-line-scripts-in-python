@@ -495,4 +495,112 @@ test_check.py ....                                                              
 =========================================================================
 ```
 
-This is in [commit ]().
+This is in [commit ef261049](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/ef2610492cc6615237691d2661829fc266f08917).
+
+## Testing headers
+
+Now that I look at my `check_headers` function, I see that it uses a global variable. That is *kinda annoying*. However, I think I can test that the code does what it should just the same.
+
+Nope. I lied. 
+
+So, the way I wrote it, it returns error strings. However, in testing, I don't want error strings: I want to know what was *expected*, and what I got instead. So, I'm going to revise my code so it is more testable.
+
+My new `check_headers` function looks like this:
+
+```python
+def check_headers(df):
+    results = []
+    actual_headers = list(df.columns.values) 
+    for expected, actual in zip(EXPECTED_HEADERS, actual_headers):
+        if not (expected == actual):
+            results.append({"expected": expected, "actual": actual})
+    return results
+```
+
+Instead of returning a string that can be printed, I return a list of dictionaries. I want zero dictionaries to come back, but if they do, I know what was expected vs. what was found. This involves a small change in my `cli()` code as well.
+
+```python
+    r1 = check_headers(df)
+    if len(r1) != 0:
+        for r in r1:
+            logger.error("Expected header '{}', found '{}'.".format(r["expected"], r["actual"]))
+        sys.exit(-1)
+```
+
+Now, my test can look like this:
+
+```python
+
+def test_check_headers_2():
+    bad_data = {
+        "fscs_id" : ["KY0069", "ME0119"],
+        "name": ["Library 1", "Library 2"],
+        "addr": ["123 Sesame Street, Public Television, TV 40404", "1800F St NW, Lewiston, ME, 04240"],
+        "tag": ["tag 1", "tag 2"]
+    }
+    df = pd.DataFrame(bad_data)
+    result = target.check_headers(df)
+    # The result is a list of bad headers. So, it should be empty in this test.
+    assert result == [{"expected": "address", "actual": "addr"}], "Failed to find bad header"
+```
+
+In this way, I can construct test data that is intentionally bad, and get a result back that demonstrates that my code in `check.py` is doing what I expect. 
+
+Note that I'm not trying to create and delete CSV files to run these tests. I could, and it might be something I'll decide to go back to later. For now, though, I think it is enough to create some small dataframes "on the fly," and use those to drive each test that I'm writing. It gives me more control over what my test cases are, and lets me probe exactly what my code is doing test-by-test.
+
+## Testing library IDs
+
+Fortunately, here I just returned a list of bad library IDs. That will be easy to test. And, I moved my "good" dataframe outside of my tests, so I can reuse it. Now this test looks like:
+
+```python
+def test_check_all_good_fscs_ids():
+    results = target.check_library_ids(good_df)
+    assert len(results) == 0, "found bad library IDs: {}".format(results)
+```
+
+I can also check for some bad IDs:
+
+```python
+def test_bad_fscs_ids():
+    bad_data = {
+        "fscs_id" : ["KENTUCKY0069", "ME0119"],
+        "name": ["Library 1", "Library 2"],
+        "addr": ["123 Sesame Street, Public Television, TV 40404", "1800F St NW, Lewiston, ME, 04240"],
+        "tag": ["tag 1", "tag 2"]
+    }
+    df = pd.DataFrame(bad_data)
+    results = target.check_library_ids(df)
+    assert results == ["KENTUCKY0069"], "Failed to find the bad ID."
+```
+
+## Checking for nulls
+
+There's one more easy function to test. That's the null checks. 
+
+```python
+def test_no_nulls():
+    results = target.check_any_nulls(good_df)
+    assert len(results) == 0, "Found a null where there shouldn't be any."
+
+def test_found_null():
+    bad_data = {
+        "fscs_id" : ["KY0069", None],
+        "name": ["Library 1", "Library 2"],
+        "addr": ["123 Sesame Street, Public Television, TV 40404", "1800F St NW, Lewiston, ME, 04240"],
+        "tag": [None, "tag 2"]
+    }
+    df = pd.DataFrame(bad_data)
+    results = target.check_any_nulls(df)
+    assert results == ["fscs_id", "tag"], "Failed to find all the null columns."
+```
+
+Again, I should have more tests. But, I at least have covered the code. It would be nice to make sure that a null at the beginning or end of a column is caught, and that every column is correctly checked. 
+
+# Testing the `cli()`
+
+Because of how the `click` code is structured, it is possible to test the entire CLI. However, because I'm not done with this program (and I didn't do a top-down design), I don't know what I'll need to test for regarding success and failure of `cli()`. (Also, I probably need to revisit my `sys.exit()` calls, and possibly have different exit codes for different exit conditions, so I can test for those exit codes in the unit testing harness.)
+
+(Actually, I'm going to have to break `cli()` apart a bit if I'm going to unit test it nicely.)
+
+So, for now, I'm going to pass on testing `cli()`. I have tested all the functions that `cli()` uses, and I 1) have higher confidence in my code, and 2) can now work this into some automation via GitHub Actions (or similar) as part of my development process.
+

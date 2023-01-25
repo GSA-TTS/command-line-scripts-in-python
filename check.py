@@ -18,12 +18,12 @@ def check_filename_ends_with(filename, ext):
     return filename.endswith(ext)
 
 def check_headers(df):
-    result = []
+    results = []
     actual_headers = list(df.columns.values) 
     for expected, actual in zip(EXPECTED_HEADERS, actual_headers):
         if not (expected == actual):
-            result.append("Expected header '{}', found '{}'".format(expected, actual))
-    return result
+            results.append({"expected": expected, "actual": actual})
+    return results
 
 # https://www.dataquest.io/wp-content/uploads/2019/03/python-regular-expressions-cheat-sheet.pdf
 # https://www.pythoncheatsheet.org/cheatsheet/regular-expressions
@@ -61,7 +61,6 @@ def cli(filename):
     # Read in the CSV with headers
     df = pandas.read_csv(filename, header=0)
     # check_headers will throw specific errors for specific mismatches.
-    r1 = check_headers(df)
     r3 = check_any_nulls(df)
     if len(r3) != 0:
         for r in r3:
@@ -70,12 +69,15 @@ def cli(filename):
     # https://stackoverflow.com/questions/30487993/python-how-to-check-if-two-lists-are-not-empty
     # Checking lists involves truthiness and falsiness of []. I'll keep it simple.
     # And, more importantly... make sure it works. I'll check the list length.
+    r1 = check_headers(df)
     if len(r1) != 0:
         for r in r1:
-            logger.error(r)
+            logger.error("Expected header '{}', found '{}'.".format(r["expected"], r["actual"]))
         sys.exit(-1)
     r2 = check_library_ids(df)
     if len(r2) != 0:
         for r in r2:
             logger.error("{} is not a valid library ID.".format(r))
         sys.exit(-1)
+    
+    return 0
