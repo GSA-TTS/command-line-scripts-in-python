@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(
-    name='admin tools',
+    name='library admin tools',
     version='0.1.0',
     py_modules=['check'],
     install_requires=[
