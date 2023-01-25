@@ -67,7 +67,7 @@ Now that I've got things in my repository, I'm ready to get things started. I'll
 
 ## A minimal `check.py`
 
-The first thing I'll do is write a minimal script. It will... do nothing. This is p[commit ]().
+The first thing I'll do is write a minimal script. It will... do nothing. This is p[commit 476dd95a](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/476dd95a517a3d2a72b1496ffe049ca2af95a70d).
 
 ```python
 import click
@@ -93,7 +93,17 @@ check README.md
 
 My script expects a single filename as an argument, so I'll feed it the README. However, the script does *nothing* at the moment, so... nothing happens. This is good.
 
+## A minimal CSV
 
+My code is going to operate on some local data, and ultimately push it to a remote database. What does that local data look like? How about something... library-ish?
 
+```
+fscs_id,name,address,tag
+OH0153,"MT VERNON & KNOX COUNTY, PUBLIC LIBRARY OF","201 N. MULBERRY ST., MT. VERNON, OH 43050",circulation desk
+KY0069,"MADISON COUNTY PUBLIC LIBRARY","507 WEST MAIN STREET, RICHMOND, KY 40475",networking closet
+GA0022,"FULTON COUNTY LIBRARY SYSTEM","ONE MARGARET MITCHELL SQUARE, ATLANTA, GA 30303",above door
+```
+
+This CSV is called `libs1.csv`, and first appears in [commit ]().
 
 
