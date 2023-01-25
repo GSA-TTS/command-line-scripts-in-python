@@ -283,3 +283,96 @@ def cli(filename):
 
 I've decided to follow a pattern of writing helpers that always return *something*. This is important, as it makes (spoiler!) unit testing of these functions easier. So, I read in my CSV as a pandas dataframe, and then pass that frame off to the `check_headers` helper. It goes through the headers, and tells me everywhere it finds a mismtach. I can then report those errors out to the user (and log them), and if I had any errors, I should exit the script.
 
+This is [commit 9f9c3a1d](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/9f9c3a1d9b32fccd2c5d518d739da8ab0465496d).
+
+## Checking the contents of the columns
+
+I'm now going to check the contents of all of the columns. I need to see if the FSCS Id matches a regexp pattern, but the rest are just check for "does this column exist in every row"-type questions. So, I should be able to write a single function and re-use it for checking columns 2, 3, and 4. 
+
+```python
+...
+import re
+...
+
+# https://www.dataquest.io/wp-content/uploads/2019/03/python-regular-expressions-cheat-sheet.pdf
+# https://www.pythoncheatsheet.org/cheatsheet/regular-expressions
+def check_library_ids(df):
+    results = []
+    regex = re.compile('[A-Z]{2}[0-9]{4}') 
+    ids = list(df['fscs_id'].values)
+    for id in ids:
+        if not regex.match(id):
+            logger.debug("{} did not match".format(id))
+            results.append(id)
+    return results
+
+@click.command()
+@click.argument('filename')
+def cli(filename):
+
+    ... 
+
+    r2 = check_library_ids(df)
+    if len(r2) != 0:
+        for r in r2:
+            logger.error("{} is not a valid library ID.".format(r))
+        sys.exit(-1)
+```
+
+### Uh-oh! I never broke things!
+
+Now, I just realized I don't have any CSV files that break! I only have one CSV file, and it "just works!" This is a problem. Time to create some bad CSV files.
+
+`libs2.csv` and `libs3` will have some bad column headers.
+
+`libs2`:
+
+```
+fscs_identifier,name,address,tag
+OH0153,"MT VERNON & KNOX COUNTY, PUBLIC LIBRARY OF","201 N. MULBERRY ST., MT. VERNON, OH 43050",circulation desk
+KY0069,"MADISON COUNTY PUBLIC LIBRARY","507 WEST MAIN STREET, RICHMOND, KY 40475",networking closet
+GA0022,"FULTON COUNTY LIBRARY SYSTEM","ONE MARGARET MITCHELL SQUARE, ATLANTA, GA 30303",above door
+```
+
+`libs3`:
+```
+fscs_id,name,addr,tag
+OH0153,"MT VERNON & KNOX COUNTY, PUBLIC LIBRARY OF","201 N. MULBERRY ST., MT. VERNON, OH 43050",circulation desk
+KY0069,"MADISON COUNTY PUBLIC LIBRARY","507 WEST MAIN STREET, RICHMOND, KY 40475",networking closet
+GA0022,"FULTON COUNTY LIBRARY SYSTEM","ONE MARGARET MITCHELL SQUARE, ATLANTA, GA 30303",above door
+```
+
+This yields:
+
+```
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ check libs1.csv 
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ check libs2.csv 
+25-Jan-23 09:46:35:ERROR:Expected header 'fscs_id', found 'fscs_identifier'
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ check libs3.csv 
+25-Jan-23 09:46:38:ERROR:Expected header 'address', found 'addr'
+```
+
+That's good. And, now, `libs4` will have good headers, but a bad library ID or two.
+
+```
+fscs_id,name,address,tag
+OHO0153,"MT VERNON & KNOX COUNTY, PUBLIC LIBRARY OF","201 N. MULBERRY ST., MT. VERNON, OH 43050",circulation desk
+KENTUCKY0069,"MADISON COUNTY PUBLIC LIBRARY","507 WEST MAIN STREET, RICHMOND, KY 40475",networking closet
+G0022,"FULTON COUNTY LIBRARY SYSTEM","ONE MARGARET MITCHELL SQUARE, ATLANTA, GA 30303",above door
+```
+
+Actually, *three* bad IDs. What do we get? 
+
+```bash
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ check libs4.csv 
+25-Jan-23 10:06:39:DEBUG:OHO0153 did not match
+25-Jan-23 10:06:39:DEBUG:KENTUCKY0069 did not match
+25-Jan-23 10:06:39:DEBUG:G0022 did not match
+25-Jan-23 10:06:39:ERROR:OHO0153 is not a valid library ID.
+25-Jan-23 10:06:39:ERROR:KENTUCKY0069 is not a valid library ID.
+25-Jan-23 10:06:39:ERROR:G0022 is not a valid library ID.
+```
+
+and, our trusty `libs1.csv` still says nothing; it checks/passes our tests. This code is in [commit ]().
+
+

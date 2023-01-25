@@ -1,5 +1,6 @@
 import click
 import pandas
+import re
 import sys
 
 from lgr import logger
@@ -16,7 +17,6 @@ def check_file_exists(filename):
 def check_filename_ends_with(filename, ext):
     return filename.endswith(ext)
 
-
 def check_headers(df):
     result = []
     actual_headers = list(df.columns.values) 
@@ -24,7 +24,19 @@ def check_headers(df):
         if not (expected == actual):
             result.append("Expected header '{}', found '{}'".format(expected, actual))
     return result
-    
+
+# https://www.dataquest.io/wp-content/uploads/2019/03/python-regular-expressions-cheat-sheet.pdf
+# https://www.pythoncheatsheet.org/cheatsheet/regular-expressions
+def check_library_ids(df):
+    results = []
+    regex = re.compile('[A-Z]{2}[0-9]{4}') 
+    ids = list(df['fscs_id'].values)
+    for id in ids:
+        if not regex.match(id):
+            logger.debug("{} did not match".format(id))
+            results.append(id)
+    return results
+
 @click.command()
 @click.argument('filename')
 def cli(filename):
@@ -39,8 +51,16 @@ def cli(filename):
     # Read in the CSV with headers
     df = pandas.read_csv(filename, header=0)
     # check_headers will throw specific errors for specific mismatches.
-    result = check_headers(df)
-    if result is not None:
-        for r in result:
+    r1 = check_headers(df)
+    # https://stackoverflow.com/questions/30487993/python-how-to-check-if-two-lists-are-not-empty
+    # Checking lists involves truthiness and falsiness of []. I'll keep it simple.
+    # And, more importantly... make sure it works. I'll check the list length.
+    if len(r1) != 0:
+        for r in r1:
             logger.error(r)
+        sys.exit(-1)
+    r2 = check_library_ids(df)
+    if len(r2) != 0:
+        for r in r2:
+            logger.error("{} is not a valid library ID.".format(r))
         sys.exit(-1)
