@@ -68,3 +68,17 @@ def test_check_library_exists_3():
     # Returns a boolean
     r = upload.check_library_exists(row, "fscs_id")
     assert r, "EN0003-001 should now be in the DB."
+
+def test_library_in_only_once():
+    row = {
+        "fscs_id": "EN0004-001",
+        "address": "2 Endor Place, Endor, 20000",
+        "name": "SPEEDERMOBILE, ENDOR PUBLIC LIBRARY",
+        "api_key": "let-the-wookie-win"
+    }
+    r = upload.insert_library("libraries", row)
+    r = upload.insert_library("libraries", row)
+    r = upload.insert_library("libraries", row)
+    pk = "fscs_id"
+    r = upload.query_data("libraries", "{}={}".format(pk, "eq.{}".format(row[pk])))
+    assert len(r) == 1, "EN0004 should only appear once."

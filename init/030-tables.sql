@@ -3,8 +3,7 @@ SET default_table_access_method = heap;
 
 CREATE TABLE IF NOT EXISTS
 data.libraries (
-    uniqueid SERIAL PRIMARY KEY,
-    fscs_id character varying(16),
+    fscs_id character varying(16) PRIMARY KEY ,
     name character varying,
     address character varying
 );

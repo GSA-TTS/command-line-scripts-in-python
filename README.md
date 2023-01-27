@@ -1008,5 +1008,58 @@ I see that OH has already been inserted, and I skip it. Then, I try and upload t
 
 I do think that I need to do some work here on my logging; it is not clear what is going as-is. I also now need to add some tests for this script. That's going to take a bit of refactoring, I think.
 
-The logging improvements and refactoring show up in [commit ](). 
+The logging improvements and refactoring show up in [commit 9eca4b26](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/9eca4b26caf8d624fdd09145eba88402c8ca1e58). 
+
+## A possible bug...
+
+So, it turns out that my SQL will happily INSERT libraries more than once. This is because the FSCS Id is *not* a primary key.
+
+Having a library show up multiple times is *not* what I want. So, I need to fix this.
+
+1. One solution is to make the FSCS Id a UNIQUE value. That would prevent this problem.
+2. ...
+
+Yep. I'll do that.
+
+```sql
+CREATE TABLE IF NOT EXISTS
+data.libraries (
+    uniqueid SERIAL PRIMARY KEY,
+    fscs_id character varying(16),
+    name character varying,
+    address character varying
+);
+```
+
+becomes
+
+```sql
+CREATE TABLE IF NOT EXISTS
+data.libraries (
+    fscs_id character varying(16) PRIMARY KEY,
+    name character varying,
+    address character varying
+);
+```
+
+Not only does this work, but all my prior tests still pass. And, I can test for the correct behavior:
+
+```python
+def test_library_in_only_once():
+    row = {
+        "fscs_id": "EN0004-001",
+        "address": "2 Endor Place, Endor, 20000",
+        "name": "SPEEDERMOBILE, ENDOR PUBLIC LIBRARY",
+        "api_key": "let-the-wookie-win"
+    }
+    r = upload.insert_library("libraries", row)
+    r = upload.insert_library("libraries", row)
+    r = upload.insert_library("libraries", row)
+    pk = "fscs_id"
+    r = upload.query_data("libraries", "{}={}".format(pk, "eq.{}".format(row[pk])))
+    assert len(r) == 1, "EN0004 should only appear once."
+```
+
+
+
 
