@@ -717,4 +717,149 @@ def test_add_passphrase():
 
 I'm also pulling in my test module for check, so I can reuse some test data. This may make my tests fragile in the long run (if I change the test data in one module, it might break other tests.) But, if the shape of the data changes, then it is likely that lots of things will break... and, perhaps it is good that other tests break, too. (Better tests break than production code...)
 
-This is in [commit ]().
+This is in [commit 42cfd36d](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/42cfd36da9f776f0c75dfebffe9f17a33c3afe00).
+
+# Uploading to the DB
+
+I've checked and extended my source data, but now I want to upload it to a remote database. Specifically:
+
+1. I want to upload some data to a database (if it isn't already there).
+2. I want dump a PDF of some of the information that I added, so it can be distributed easily.
+
+I'm going to give myself a test database to work with, so that I can do this "authentically." The setup of this would be a story unto itself; for now, let's just say that it is a containerized system that includes:
+
+1. A `postgres` database, with tables for users and passphrases, and library data.
+2. A `postgrest` API server, which allows us to interact with the database through an HTTPS-based API.
+
+To do a clean run of this stack, we need first build the postgres container.
+
+```
+docker build -t library/postgres:latest -f Dockerfile.pgjwt .
+```
+
+Then, to run the stack (and clean out any old data):
+
+```
+sudo rm -rf data ; mkdir data ; source db.env ; docker compose up
+```
+
+This removes the postgres data directory, recreates it, sources the environment variables we need for this local stack, and then run everything using docker compose. Note that this is *absolutely not a safe configuration* for running on a shared server; it is entirely for local development only.
+
+If you want to keep inserted data and config, then it should be enough to do the following on subsequent runs:
+
+```
+source db.env ; docker compose up
+```
+
+## Getting started
+
+For upload, we'll have to add another script to our `setup.py`, and create a new file and test script.
+
+```python
+from setuptools import setup
+
+setup(
+    name='library admin tools',
+    version='0.1.0',
+    py_modules=['check', 'extend', 'upload'],
+    install_requires=[
+        'click',
+        'pandas',
+        'peewee',
+        'pytest',
+        'requests',
+        'xkcdpass'
+    ],
+    entry_points={
+        'console_scripts': [
+            'check = check:cli',
+            'extend = extend:cli',
+            'upload = upload:cli'
+        ],
+    },
+)
+```
+
+As can be seen, each time we add a new command-line tool, our `setup.py` grows a bit. And, every time we use a new library, we also add it here. For our uploading tool, we need `requests` (for HTTPS work) and `peewee` (for object relational mapping). After adding those pieces, we should re-run the `pip install`:
+
+```
+pip install --editable .
+```
+
+Now, my `upload.py` might start out with just enough code to verify that I have everything set up correctly, and I can authenticate (and get a JWT token) from `postgrest`.
+
+```python
+import click
+import os
+import pandas as pd
+import requests
+from lgr import logger
+
+# This has no robustness; no backoff, retries, etc. It's for demonstration purposes.
+# Note, however, that sensitive information is passed in via OS parameters.
+# This could also be via config file.  
+def get_login_token():
+    protocol = os.getenv("POSTGREST_PROTOCOL")
+    host = os.getenv("POSTGREST_HOST")
+    port = os.getenv("POSTGREST_PORT")
+    username = os.getenv("ADMIN_USERNAME")
+    passphrase = os.getenv("ADMIN_PASSPHRASE")
+    r = requests.post("{}://{}:{}/rpc/login".format(protocol, host, port),
+        json={"username": username, "api_key": passphrase},
+        headers={"content-type": "application/json"})
+    return r.json()['token']
+
+@click.command()
+@click.argument('filename')
+def cli(filename):
+    # FIXME: We need to check that everything is good with the extended CSV. 
+    # It SHOULD be OK, but we will be paranoid.
+    extended_df = pd.read_csv(filename, header=0)
+    token = get_login_token()
+    logger.info(token)
+```
+
+To run this, for now, I'm going to say:
+
+```
+source db.env ; upload extended_libs1.csv
+```
+
+This makes sure I have my OS environment variables set, and then I grab them from within the script. Note that I'm now working with the *extended* CSV that would have been produced by `extend.py`. 
+
+### EMERGENCY EMERGENCY EMERGENCY
+
+Here's something fun. (This is written mostly-linearly while developing the code.) Something we failed to do was, after writing the "extended CSV" was to check that the output was correct. There were unit tests on the input, but none on the *output*. 
+
+In a data processing pipeline, the input *and* output MUST be checked. (This is also true for compilers and other language transformation tools.) As a result, I discovered that my `pandas.to_csv()` call actually produced a CSV that looks like this:
+
+```
+,fscs_id,name,address,tag,passphrase
+0,OH0153,"MT VERNON & KNOX COUNTY, PUBLIC LIBRARY OF","201 N. MULBERRY ST., MT. VERNON, OH 43050",circulation desk,spoiler-sleep-aneurism-shorty-deviancy-feminist
+1,KY0069,MADISON COUNTY PUBLIC LIBRARY,"507 WEST MAIN STREET, RICHMOND, KY 40475",networking closet,scion-faction-caviar-thesis-kosher-treat
+2,GA0022,FULTON COUNTY LIBRARY SYSTEM,"ONE MARGARET MITCHELL SQUARE, ATLANTA, GA 30303",above door,elude-supper-ricotta-epilepsy-pushing-until
+```
+
+Put simply, `pandas` added an index column. I decided, "on a whim," to check the headers on the incoming "extended" CSV. And, lo-and-behold, it failed. Why? Because my list of headers includes an empty header in the 0-index position.
+
+Shame on me.
+
+**Always check inputs and outputs of every step of a data processing pipeline.**
+
+FIXME: I'll add this in shortly, and note the commit here (). It will be out of sequence with the narrative.
+
+## Uploading data
+
+At this point, I need to upload data to the database. However, I *only* want to upload data that is *new*. That is, I want my user to be able to do the following:
+
+1. Enter info into a spreadsheet.
+2. Export the spreadsheet to a CSV.
+3. Upload the info to the database.
+4. Add to or modify spreadsheet.
+5. Export the sheet to CSV.
+5. Upload only the *new* information to the database by default. (And, provide a flag to allow them to upload all *modified* information to the database.)
+
+At no point do I want the user to worry that I will be changing things that were previously set without their express say-so. That is, the database must be protected, and my tool can't be a source of random change or corruption to their DB.
+
+I'll handle the easiest part first. I'll upload things for which a primary key does not exist. That seems "safe."
+

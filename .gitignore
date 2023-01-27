@@ -4,3 +4,4 @@ venv
 *.log
 .ignore
 extended_*csv
+data/

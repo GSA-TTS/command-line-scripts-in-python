@@ -1,0 +1,4 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
+CREATE EXTENSION IF NOT EXISTS pgjwt WITH SCHEMA public;
+COMMENT ON EXTENSION pgjwt IS 'JSON Web Token API for Postgresql';
