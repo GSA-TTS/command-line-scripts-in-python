@@ -85,6 +85,7 @@ def cli(filename):
     for row in extended_df.to_dict(orient='records'):
         if check_row_exists(row, "fscs_id"):
             logger.info("'{}' exists in the database".format(row["fscs_id"]))
+            r = insert_row("libraries", row)
         else:
             r = insert_row("libraries", row)
             logger.info("Inserted {}: {}".format(row["fscs_id"], r))

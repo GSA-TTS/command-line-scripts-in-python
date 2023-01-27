@@ -846,7 +846,7 @@ Shame on me.
 
 **Always check inputs and outputs of every step of a data processing pipeline.**
 
-FIXME: I'll add this in shortly, and note the commit here (). It will be out of sequence with the narrative.
+FIXME: I'll add this in shortly, and note the commit here ([bbc66e4f](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/bbc66e4f2245abc2634b550010a48fddb0e8a66d)). It will be out of sequence with the narrative.
 
 ## Uploading data
 
@@ -861,5 +861,68 @@ At this point, I need to upload data to the database. However, I *only* want to 
 
 At no point do I want the user to worry that I will be changing things that were previously set without their express say-so. That is, the database must be protected, and my tool can't be a source of random change or corruption to their DB.
 
-I'll handle the easiest part first. I'll upload things for which a primary key does not exist. That seems "safe."
+I'll handle the easiest part first. I'll upload things for which a primary key does not exist. That seems "safe." 
 
+The containers and upload script are in [commit bbc66e4f](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/bbc66e4f2245abc2634b550010a48fddb0e8a66d).
+
+Some things to note:
+
+1. I have a lot of testing to do. This is fragile stuff, because of the API calls.
+2. I have a lot of logging, because I wanted to know what is going on at a granular level. 
+3. I'm not confident this is as safe as I want.
+
+To #1, it would have been nice if I had used TDD (test-driven design). But, I'll take "writing it, getting it working, and refactoring it and testing it for full coverage."
+
+I had a lot of logging because I was running into Postgrest confusion; I still wonder if I have my permissions right. That matters *in production*, because I don't want permissions that allow for escalation. I should have some tests in here that try and do things (like, INSERTs) in an unauthenticated manner, and make sure those INSERTs fail.
+
+Finally, *is this really safe*? I'm doing an API query to check if things are present, and then conditionally doing an INSERT. In theory, there's ways for a race condition to happen. This would imply that more than one admin is working with the database at the same time... but, it is possible. What are the race hazards?
+
+1. I could check to see if something is there: no.
+2. Someone else does an update, and their INSERT happens.
+3. I try and INSERT data, and it fails.
+
+Another race is this:
+
+1. I check, and something is there: yes
+2. Someone else deletes that data.
+3. I do nothing.
+
+Now, this is because my operations are separate API calls, as opposed to transactions on a database. 
+
+Given my use case (a single admin user), I'm... probably OK. But, I might want to look at
+
+[https://stackoverflow.com/questions/4069718/postgres-insert-if-does-not-exist-already](https://stackoverflow.com/questions/4069718/postgres-insert-if-does-not-exist-already)
+
+and consider using `ON CONFLICT DO NOTHING` in my SQL code for the Postgrest API code. This would mean that if I try and do an insert where there is already an FSCS Id present, I won't accidentally overwrite when I'm doing my initial insert.
+
+This turns this piece of SQL:
+
+```sql
+CREATE OR REPLACE FUNCTION api.insert_library(jsn JSON)
+    RETURNS JSON
+AS $$
+BEGIN
+    INSERT INTO data.libraries (fscs_id, name, address) VALUES (jsn->>'fscs_id', jsn->>'name', jsn->>'address');
+    INSERT INTO auth.users (username, api_key, role) VALUES (jsn->>'fscs_id', jsn->>'api_key', 'library');
+    RETURN '{"result":"OK"}'::json;
+END;
+$$ LANGUAGE 'plpgsql' SECURITY DEFINER;
+```
+
+into
+
+```sql
+CREATE OR REPLACE FUNCTION api.insert_library(jsn JSON)
+    RETURNS JSON
+AS $$
+BEGIN
+    INSERT INTO data.libraries (fscs_id, name, address) VALUES (jsn->>'fscs_id', jsn->>'name', jsn->>'address')
+    ON CONFLICT DO NOTHING;
+    INSERT INTO auth.users (username, api_key, role) VALUES (jsn->>'fscs_id', jsn->>'api_key', 'library')
+    ON CONFLICT DO NOTHING;
+    RETURN '{"result":"OK"}'::json;
+END;
+$$ LANGUAGE 'plpgsql' SECURITY DEFINER;
+```
+
+*In theory*, I could now get rid of my check to see if things exist. *However*, that would mean that I was then relying entirely on my `DO NOTHING` clause. If someone ever changed that later on the backend, my script would then be in danger of failing or doing some kind of harm (maybe; PK constraints would probably save me). Point being, I'm writing *defensive* code on multiple levels, because I *really* don't want my library admin breaking the live database in production.
