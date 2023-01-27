@@ -926,3 +926,87 @@ $$ LANGUAGE 'plpgsql' SECURITY DEFINER;
 ```
 
 *In theory*, I could now get rid of my check to see if things exist. *However*, that would mean that I was then relying entirely on my `DO NOTHING` clause. If someone ever changed that later on the backend, my script would then be in danger of failing or doing some kind of harm (maybe; PK constraints would probably save me). Point being, I'm writing *defensive* code on multiple levels, because I *really* don't want my library admin breaking the live database in production.
+
+This change is small, but noted in [commit 85e9e228](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/85e9e228fa212e29dd4947f3129dd6f69fbd4100).
+
+### Where am I?
+
+At this point, I have an API that lets me upload data to the database, and it will not overwrite data on upload. This is good. Now, I can try adding a line to the CSV, and re-running my upload. I start with this:
+
+```
+fscs_id,name,address,tag,passphrase
+OH0153,"MT VERNON & KNOX COUNTY, PUBLIC LIBRARY OF","201 N. MULBERRY ST., MT. VERNON, OH 43050",circulation desk,gaining-drizzly-vendetta-outcast-durable-skinhead
+```
+
+and I go to this:
+
+```
+fscs_id,name,address,tag,passphrase
+OH0153,"MT VERNON & KNOX COUNTY, PUBLIC LIBRARY OF","201 N. MULBERRY ST., MT. VERNON, OH 43050",circulation desk,gaining-drizzly-vendetta-outcast-durable-skinhead
+KY0069,MADISON COUNTY PUBLIC LIBRARY,"507 WEST MAIN STREET, RICHMOND, KY 40475",networking closet,overfill-armrest-graffiti-groove-deafness-arrange
+```
+
+
+When I run the first upload:
+
+```
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ source db.env ; upload extended_one_line.csv 
+27-Jan-23 13:51:02:INFO:{'fscs_id': 'OH0153', 'name': 'MT VERNON & KNOX COUNTY, PUBLIC LIBRARY OF', 'address': '201 N. MULBERRY ST., MT. VERNON, OH 43050', 'tag': 'circulation desk', 'api_key': 'gaining-drizzly-vendetta-outcast-durable-skinhead'}
+27-Jan-23 13:51:02:INFO:constructed URL: http://localhost:3000/libraries?fscs_id=eq.OH0153
+27-Jan-23 13:51:02:INFO:query url: http://localhost:3000/libraries?fscs_id=eq.OH0153
+27-Jan-23 13:51:02:INFO:constructed URL: http://localhost:3000/rpc/login
+27-Jan-23 13:51:02:INFO:Query status code: 200
+27-Jan-23 13:51:02:INFO:Looking for fscs_id
+27-Jan-23 13:51:02:INFO:[]
+27-Jan-23 13:51:02:INFO:constructed URL: http://localhost:3000/rpc/insert_library
+27-Jan-23 13:51:02:INFO:constructed URL: http://localhost:3000/rpc/login
+27-Jan-23 13:51:02:INFO:http://localhost:3000/rpc/insert_library
+27-Jan-23 13:51:02:INFO:{'fscs_id': 'OH0153', 'name': 'MT VERNON & KNOX COUNTY, PUBLIC LIBRARY OF', 'address': '201 N. MULBERRY ST., MT. VERNON, OH 43050', 'tag': 'circulation desk', 'api_key': 'gaining-drizzly-vendetta-outcast-durable-skinhead'}
+27-Jan-23 13:51:02:INFO:200
+27-Jan-23 13:51:02:INFO:Inserted OH0153: {'result': 'OK'}
+```
+
+That looks good. Noisy, but good. Now, I try and run this with the two-line file:
+
+```
+(venv) jadudm@poke:~/git/command-line-scripts-in-python$ source db.env ; upload extended_two_lines.csv 
+27-Jan-23 13:51:40:INFO:{'fscs_id': 'OH0153', 'name': 'MT VERNON & KNOX COUNTY, PUBLIC LIBRARY OF', 'address': '201 N. MULBERRY ST., MT. VERNON, OH 43050', 'tag': 'circulation desk', 'api_key': 'gaining-drizzly-vendetta-outcast-durable-skinhead'}
+27-Jan-23 13:51:40:INFO:constructed URL: http://localhost:3000/libraries?fscs_id=eq.OH0153
+27-Jan-23 13:51:40:INFO:query url: http://localhost:3000/libraries?fscs_id=eq.OH0153
+27-Jan-23 13:51:40:INFO:constructed URL: http://localhost:3000/rpc/login
+27-Jan-23 13:51:40:INFO:Query status code: 200
+27-Jan-23 13:51:40:INFO:Looking for fscs_id
+27-Jan-23 13:51:40:INFO:[{'uniqueid': 1, 'fscs_id': 'OH0153', 'name': 'MT VERNON & KNOX COUNTY, PUBLIC LIBRARY OF', 'address': '201 N. MULBERRY ST., MT. VERNON, OH 43050'}]
+27-Jan-23 13:51:40:INFO:'OH0153' exists in the database
+27-Jan-23 13:51:40:INFO:constructed URL: http://localhost:3000/rpc/insert_library
+27-Jan-23 13:51:40:INFO:constructed URL: http://localhost:3000/rpc/login
+27-Jan-23 13:51:40:INFO:http://localhost:3000/rpc/insert_library
+27-Jan-23 13:51:40:INFO:{'fscs_id': 'OH0153', 'name': 'MT VERNON & KNOX COUNTY, PUBLIC LIBRARY OF', 'address': '201 N. MULBERRY ST., MT. VERNON, OH 43050', 'tag': 'circulation desk', 'api_key': 'gaining-drizzly-vendetta-outcast-durable-skinhead'}
+27-Jan-23 13:51:40:INFO:200
+27-Jan-23 13:51:40:INFO:{'fscs_id': 'KY0069', 'name': 'MADISON COUNTY PUBLIC LIBRARY', 'address': '507 WEST MAIN STREET, RICHMOND, KY 40475', 'tag': 'networking closet', 'api_key': 'overfill-armrest-graffiti-groove-deafness-arrange'}
+27-Jan-23 13:51:40:INFO:constructed URL: http://localhost:3000/libraries?fscs_id=eq.KY0069
+27-Jan-23 13:51:40:INFO:query url: http://localhost:3000/libraries?fscs_id=eq.KY0069
+27-Jan-23 13:51:40:INFO:constructed URL: http://localhost:3000/rpc/login
+27-Jan-23 13:51:40:INFO:Query status code: 200
+27-Jan-23 13:51:40:INFO:Looking for fscs_id
+27-Jan-23 13:51:40:INFO:[]
+27-Jan-23 13:51:40:INFO:constructed URL: http://localhost:3000/rpc/insert_library
+27-Jan-23 13:51:40:INFO:constructed URL: http://localhost:3000/rpc/login
+27-Jan-23 13:51:40:INFO:http://localhost:3000/rpc/insert_library
+27-Jan-23 13:51:40:INFO:{'fscs_id': 'KY0069', 'name': 'MADISON COUNTY PUBLIC LIBRARY', 'address': '507 WEST MAIN STREET, RICHMOND, KY 40475', 'tag': 'networking closet', 'api_key': 'overfill-armrest-graffiti-groove-deafness-arrange'}
+27-Jan-23 13:51:40:INFO:200
+27-Jan-23 13:51:40:INFO:Inserted KY0069: {'result': 'OK'}
+```
+
+The important bit of logging is this line:
+
+```
+27-Jan-23 13:51:40:INFO:'OH0153' exists in the database
+```
+
+I see that OH has already been inserted, and I skip it. Then, I try and upload the second library, and everything goes well.
+
+I do think that I need to do some work here on my logging; it is not clear what is going as-is. I also now need to add some tests for this script. That's going to take a bit of refactoring, I think.
+
+The logging improvements and refactoring show up in [commit ](). 
+

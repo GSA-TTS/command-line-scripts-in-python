@@ -1,6 +1,5 @@
 import check
 import click
-import json
 import os
 import pandas as pd
 import requests
@@ -12,15 +11,16 @@ def construct_postgrest_url(path):
     host = os.getenv("POSTGREST_HOST")
     port = os.getenv("POSTGREST_PORT")
     url = "{}://{}:{}/{}".format(protocol, host, port, path)
-    logger.info("constructed URL: {}".format(url))
+    logger.info("construct_postgrest_url - {}".format(url))
     return url
 
-# This has no robustness; no backoff, retries, etc. It's for demonstration purposes.
+# This has no robustness; no back-off, retries, etc. It's for demonstration purposes.
 # Note, however, that sensitive information is passed in via OS parameters.
 # This could also be via config file.  
 def get_login_token():
     username = os.getenv("ADMIN_USERNAME")
     passphrase = os.getenv("ADMIN_PASSPHRASE")
+    logger.info("get_login_token")
     r = requests.post(construct_postgrest_url("rpc/login"),
         json={"username": username, "api_key": passphrase},
         headers={"Content-Type": "application/json"})
@@ -28,32 +28,33 @@ def get_login_token():
 
 def query_data(table, q):
     url = construct_postgrest_url("{}?{}".format(table, q))
-    logger.info("query url: {}".format(url))
+    logger.info("query_data - {}".format(url))
     tok = get_login_token()
     r = requests.get(url, 
         headers={
             "Content-Type": "application/json",
             "Authorization": "Bearer {}".format(tok)
     })
-    logger.info("Query status code: {}".format(r.status_code))
+    logger.info("query_data - status code {}".format(r.status_code))
     return r.json()
 
-def check_row_exists(row, field):
+def check_library_exists(row, pk):
     logger.info(row)
-    r = query_data("libraries", "{}={}".format(field, "eq.{}".format(row[field])))
-    logger.info("Looking for {}".format(field))
-    logger.info(r)
+    r = query_data("libraries", "{}={}".format(pk, "eq.{}".format(row[pk])))
+    logger.info("check_library_exists - looking for field {}".format(pk))
+    logger.info("check result - {}".format(r))
     # We should only see one row come back, because the FSCS Id is a PK.
-    if len(r) == 1:
-        return r[0] != {}
+    # FIXME: NO, IT IS NOT. Perhaps it should be. But, it isn't.
+    if len(r) > 0:
+        logger.info("check_library_exists - {} already exists".format(pk))
+        return True
     else:
+        logger.info("check_library_exists - {} not in database".format(pk))
         return False
 
-def insert_row(table, row):
+def insert_library(table, row):
     url = construct_postgrest_url("rpc/insert_library".format(table))
     tok = get_login_token()
-    logger.info(url)
-    logger.info(row)
     r = requests.post(url, 
         headers={
             "Content-Type": "application/json",
@@ -61,7 +62,7 @@ def insert_row(table, row):
             "Prefer": "params=single-object"
             },
         json=row)
-    logger.info(r.status_code)
+    logger.info("insert_library - status code {}".format(r.status_code))
     return r.json()
 
 
@@ -83,10 +84,10 @@ def cli(filename):
     # for ndx, row in extended_df.iterrows():
     # https://stackoverflow.com/questions/31324310/how-to-convert-rows-in-dataframe-in-python-to-dictionaries
     for row in extended_df.to_dict(orient='records'):
-        if check_row_exists(row, "fscs_id"):
-            logger.info("'{}' exists in the database".format(row["fscs_id"]))
-            r = insert_row("libraries", row)
+        if check_library_exists(row, "fscs_id"):
+            logger.info("cli - row exists, not doing insert")
         else:
-            r = insert_row("libraries", row)
+            logger.info("cli - row not in db, inserting")
+            r = insert_library("libraries", row)
             logger.info("Inserted {}: {}".format(row["fscs_id"], r))
     
