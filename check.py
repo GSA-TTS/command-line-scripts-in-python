@@ -19,7 +19,13 @@ def check_filename_ends_with(filename, ext):
 
 def check_headers(df, expected_headers):
     results = []
-    actual_headers = list(df.columns.values) 
+    actual_headers = list(df.columns.values)
+    if len(actual_headers) > len(expected_headers):
+        logger.error("CSV has more headers than expected.")
+        return -1
+    if len(actual_headers) < len(expected_headers):
+        logger.error("CSV has fewer headers than expected.")
+        return -1
     for expected, actual in zip(expected_headers, actual_headers):
         if not (expected == actual):
             results.append({"expected": expected, "actual": actual})
@@ -68,8 +74,12 @@ def check(filename):
     # https://stackoverflow.com/questions/30487993/python-how-to-check-if-two-lists-are-not-empty
     # Checking lists involves truthiness and falsiness of []. I'll keep it simple.
     # And, more importantly... make sure it works. I'll check the list length.
+    # FIXME: This should be a *set comparison*, which would solve all 
+    # of these length checks. Set difference should yield the empty set.
     r1 = check_headers(df, EXPECTED_HEADERS)
-    if len(r1) != 0:
+    if isinstance(r1, int):
+        return r1
+    elif isinstance(r1, list) and (len(r1) != 0):
         for r in r1:
             logger.error("Expected header '{}', found '{}'.".format(r["expected"], r["actual"]))
         return -1

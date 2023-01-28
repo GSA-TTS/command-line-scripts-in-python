@@ -4,6 +4,8 @@ import os
 import pandas as pd
 import requests
 import sys
+import util
+
 from lgr import logger
 
 def construct_postgrest_url(path):
@@ -70,18 +72,19 @@ def insert_library(table, row):
 @click.command()
 @click.argument('filename')
 def cli(filename):
-    # FIXME: We need to check that everything is good with the extended CSV. 
-    # It SHOULD be OK, but we will be paranoid.
-    extended_df = pd.read_csv(filename, header=0)
-    # FIXME: Perhaps we should use api_key earlier instead of passphrase...
-    extended_df = extended_df.rename(columns={"passphrase": "api_key"})
-    # FIXME: This found a bug; pandas.to_csv() adds an index...
+    if check.check(filename) != 0:
+        logger.error("CSV is not well formed. Not uploading.")
+        sys.exit(-1)
+    df = pd.read_csv(filename, header=0)
+    extended_df = util.add_api_key(df)
     results = check.check_headers(extended_df, check.EXPECTED_HEADERS + ['api_key'])
     if len(results) != 0:
         logger.error("Extended CSV has wrong headers. Exiting.")
         sys.exit(-1)
     # https://stackoverflow.com/questions/16476924/how-to-iterate-over-rows-in-a-dataframe-in-pandas
     # for ndx, row in extended_df.iterrows():
+    # This leaves Sequence objects in place. I want rows as dicts so they can be easily
+    # sent to the backend via a JSON POST.
     # https://stackoverflow.com/questions/31324310/how-to-convert-rows-in-dataframe-in-python-to-dictionaries
     for row in extended_df.to_dict(orient='records'):
         if check_library_exists(row, "fscs_id"):

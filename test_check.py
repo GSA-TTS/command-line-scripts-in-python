@@ -59,6 +59,34 @@ def test_check_headers_2():
     # The result is a list of bad headers. So, it should be empty in this test.
     assert result == [{"expected": "address", "actual": "addr"}], "Failed to find bad header"
 
+def test_check_headers_3():
+    bad_data = {
+        "fscs_id" : ["KY0069", "ME0119"],
+        "name": ["Library 1", "Library 2"],
+        "address": ["123 Sesame Street, Public Television, TV 40404", "1800F St NW, Lewiston, ME, 04240"],
+        "tag": ["tag 1", "tag 2"],
+        "bonusheader": ["should", "not be here"]
+    }
+    df = pd.DataFrame(bad_data)
+    result = target.check_headers(df, target.EXPECTED_HEADERS)
+    # Should return -1 if the headers don't match. Perhaps I should return
+    # the broken headers instead...    
+    assert result == -1
+
+def test_check_headers_4():
+    bad_data = {
+        "fscs_id" : ["KY0069", "ME0119"],
+        "name": ["Library 1", "Library 2"],
+        "address": ["123 Sesame Street, Public Television, TV 40404", "1800F St NW, Lewiston, ME, 04240"],
+        # One header too few
+        # "tag": ["tag 1", "tag 2"],
+        }
+    df = pd.DataFrame(bad_data)
+    result = target.check_headers(df, target.EXPECTED_HEADERS)
+    # Should return -1 if the headers don't match. Perhaps I should return
+    # the broken headers instead...    
+    assert result == -1
+
 def test_check_all_good_fscs_ids():
     results = target.check_library_ids(good_df)
     assert len(results) == 0, "found bad library IDs: {}".format(results)

@@ -1060,6 +1060,65 @@ def test_library_in_only_once():
     assert len(r) == 1, "EN0004 should only appear once."
 ```
 
+This is in [commit 5ea77fbf](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/5ea77fbf5600920775b88478e76d9bc0b894b9d2)
 
+# The danger of incremental design
 
+Now, I've done the following:
 
+1. I can take a CSV and upload it to the DB.
+2. I can make sure that a library does not appear twice; this means I can upload the same CSV over-and-over, and data is not changed/overwritten.
+3. I can add lines to the CSV, and the result is that those lines are added to the DB. 
+
+In truth, if I add a new FSCS id to the CSV, that row will be added. Everything is keyed off the FSCS id.
+
+This matters, because... the way I've written this, I think I've got a usability problem.
+
+1. Every time I get a new CSV from the user, it lacks the `api_key`.
+2. I regenerate the `api_key` every run with the `extend` script.
+3. In my use case... this is *very, very bad*.
+
+So, I think for "extend" I need to be able to take a new CSV and a previously *extended* CSV, and only modify/add lines to the file that are new. That way, the old `api_key`s are preserved. But... what if they're fixing a typo in the address? Or... 
+
+So, I want the library admin to have a record of things. But, I don't want to manage CSV files *and* a database. So... perhaps the DB should be the sole source of truth?
+
+Actually, this makes a lot of sense. Why?
+
+1. Right now, I have the data in two places: the "extended" CSV and the database.
+2. To do an update of data (say, changing an address), the process will be re-run... and, the result will be a new API key. That's bad.
+3. Trying to mangle the CSV files correctly makes no sense. We want there to be one record of authority for this data.
+
+So, this makes my entire `extend` script *useless*. BUT. The code is tested, and works. What that means is I could just integrate the API key generation functionality into the `upload` script, and keep all the data management where it belongs: in the DB.
+
+# The Redesign
+
+On one hand, this is a tool that involves processing data through a sequence of steps. On the other, it is essentially a command-line interface to maintaining and updating the database of users of the system. The latter means that the database *needs* to be the sole source of truth, not a sequence of intermediate steps. 
+
+`check` is still good. It takes the spreadsheet from the user and makes sure everything is "correct." The `upload` tool, with minor modifications, is OK in its current form: it only uploads *new* information. However, we now need to handle *updates* to information. 
+
+```
+┌───────┐           ┌────────┐
+│       │           │        │
+│ check ├───────────► upload │
+│       │           │        │
+└───────┘           └────────┘
+
+┌───────┐           ┌────────┐
+│       │           │        │
+│ check ├───────────► modify │
+│       │           │        │
+└───────┘           └────────┘
+```
+
+We could add flags to `upload` that would let it also "modify" the database. Instead, I'm going to create a new tool called `modify`, so that it does exactly what we think. It will not upload new data; instead, it will modify the existing database. Instead of operating on a spreadsheet, it will operate one entry at a time. 
+
+So, for the next commit, I'm doing the following:
+
+1. Get rid of `extend`. (I'll move some of `extend` into a new file called `util.py`, which will become some helper utilities to be reused.)
+2. Integrate the passphrase/API key generation into `upload`.
+
+This removes some code, simplifies things, and makes sure `upload` has a very clear purpose: it takes a spreadsheet of entries (as a CSV), and will only upload new information. This lets the library user add rows to their sheet over time, and they can rest assured that they will not be "overwriting" any old information. It keeps that workflow simple and easy to document.
+
+(Doing this uncovered the fact that our CSV checks were inadequate... it was possible to accept a CSV into `check` that had *too many* headers, and it would pass if a subset of the headers were correct. This has been updated, and unit tests to match. Another argument for thorough TDD as opposed to hacking tests as you go...)
+
+These changes are in [commit ]().
