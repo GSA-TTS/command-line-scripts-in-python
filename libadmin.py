@@ -30,30 +30,9 @@ def delete(fscs_id):
     logger.info(r.json())
     return r.json()
 
-@cli.command()
-@click.argument('fscs_id')
-@click.option('-n', '--update-address', default=None, help="Update the address for a given id.")
-@click.option('-a', '--update-name', default=None, help="Update the name for a given id.")
-@click.option('-t', '--update-tag', default=None, help="Update the tag for a given id.")
-@click.option('-k', '--update-api-key', default=None, help="Update the tag for a given id.")
-def update(fscs_id, update_address, update_name, update_tag, update_api_key):
-    """Updates fields for a given library based on its FSCS id."""
-    logger.info("UPDATE")
-    body = {'fscs_id': fscs_id}
-    if update_address:
-        body['address'] = update_address
-    elif update_name:
-        body['name'] = update_name
-    elif update_tag:
-        body['tag'] = update_tag
-    elif update_api_key:
-        if input("Changing the API key requires a sensor update? Are you sure? (y/n) ") != "y":
-            logger.info("Did not update API keys for {}".format(fscs_id))
-            sys.exit(-1)
-        body['api-key'] = update_api_key
-
-    if update_address or update_name or update_tag or update_api_key:
-        url = util.construct_postgrest_url("rpc/update_library".format(fscs_id))
+def update_db(body):
+    if len(body) > 1:
+        url = util.construct_postgrest_url("rpc/update_library".format(body['fscs_id']))
         tok = util.get_login_token()
         r = requests.post(url, 
             headers={
@@ -66,4 +45,31 @@ def update(fscs_id, update_address, update_name, update_tag, update_api_key):
         return r.json()
     return {'updated': '', 'rows_updated': 0}
 
+def build_body(fscs_id, update_address, update_name, update_tag, update_api_key):
+    body = {'fscs_id': fscs_id}
+    if update_address:
+        body['address'] = update_address
+    elif update_name:
+        body['name'] = update_name
+    elif update_tag:
+        body['tag'] = update_tag
+    elif update_api_key:
+        body['api-key'] = update_api_key
+    return body
+
+@cli.command()
+@click.argument('fscs_id')
+@click.option('-n', '--update-address', default=None, help="Update the address for a given id.")
+@click.option('-a', '--update-name', default=None, help="Update the name for a given id.")
+@click.option('-t', '--update-tag', default=None, help="Update the tag for a given id.")
+@click.option('-k', '--update-api-key', default=None, help="Update the tag for a given id.")
+def update(fscs_id, update_address, update_name, update_tag, update_api_key):
+    """Updates fields for a given library based on its FSCS id."""
+    logger.info("UPDATE")
+    if update_api_key:
+        if input("Changing the API key requires a sensor update? Are you sure? (y/n) ") != "y":
+            logger.info("Did not update API keys for {}".format(fscs_id))
+            sys.exit(-1)
+    body = build_body(fscs_id, update_address, update_name, update_tag, update_api_key)
+    return update_db(body)
 

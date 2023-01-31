@@ -60,3 +60,10 @@ def check_library_exists(row, pk):
     else:
         logger.info("check_library_exists - {} not in database".format(pk))
         return False
+
+def get_library_data(fscs_id):
+    r = query_data("libraries", "fscs_id=eq.{}".format(fscs_id))
+    # We should only see one row come back, because the FSCS Id is a PK.
+    # FIXME: NO, IT IS NOT. Perhaps it should be. But, it isn't.
+    # FIXME: Now it is, in this little data model. It might not be elsewhere.
+    return r

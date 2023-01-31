@@ -1297,5 +1297,6 @@ Again, I feel like I've got some code duplication/oddness going on with my paral
 
 Really, updating the API key is not a *fundamentally* different operation than any of hte other fields, but it does warrant a bit of a slowdown. I'll re-use the `update` function, but I'll put a check in there to force the admin to confirm the operation. These changes to the above code and will get picked up and be reflected in the commit.
 
+This is reflected in [commit da3b70bd](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/da3b70bdddcf1492d916c9922dc9d32d51e14668).
 
-
+Tests are reflected in [commit ]().
