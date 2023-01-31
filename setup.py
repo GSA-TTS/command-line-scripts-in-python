@@ -6,7 +6,9 @@ setup(
     py_modules=['check', 'upload', 'libadmin'],
     install_requires=[
         'click',
+        'jinja2',
         'pandas',
+        'pdfkit',
         'peewee',
         'pytest',
         'requests',

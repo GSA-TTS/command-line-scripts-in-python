@@ -1299,4 +1299,25 @@ Really, updating the API key is not a *fundamentally* different operation than a
 
 This is reflected in [commit da3b70bd](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/da3b70bdddcf1492d916c9922dc9d32d51e14668).
 
-Tests are reflected in [commit ]().
+Tests are reflected in [commit c6e64b36](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/c6e64b36339892f983efc8505922600dc7187ede).
+
+## Generating PDFs
+
+Now, we're approaching the endgame. In doing so, another problem has been identified...
+
+1. The lib admin downloads their base CSV (what libraries are participating), and uploads it.
+2. API keys are generated when the file is uploaded. There's no local record.
+3. The API keys are *encrypted* in the DB. As a result... we have no idea what they are now.
+
+The whole reason for putting things directly in the DB was to avoid a situation where we ended up with "more than one source of truth."
+
+### SOLUTION
+
+I think the solution is to have a function that generates PDFs given a library id, name, address, and API key. This way, it can be called in two places:
+
+1. When the library is initially uploaded to the DB.
+2. When the API key is updated via `libadmin`. 
+
+(Everything is probably going to become part of `libadmin`, but...)
+
+This is good, because it makes it easy to develop and test the PDF generating function. 

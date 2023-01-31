@@ -2,6 +2,7 @@ import check
 import click
 import os
 import pandas as pd
+import pdf
 import requests
 import sys
 import util
@@ -45,5 +46,7 @@ def cli(filename):
         else:
             logger.info("cli - row not in db, inserting")
             r = insert_library("libraries", row)
+            base_path = pdf.render_html(row)
+            pdf.html2pdf(f'{base_path}.html', f'{base_path}.pdf')
             logger.info("Inserted {}: {}".format(row["fscs_id"], r))
-    
+    return 0

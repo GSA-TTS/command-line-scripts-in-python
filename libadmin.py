@@ -2,6 +2,7 @@ import check
 import click
 import os
 import pandas as pd
+import pdf
 import requests
 import sys
 import util
@@ -70,6 +71,16 @@ def update(fscs_id, update_address, update_name, update_tag, update_api_key):
         if input("Changing the API key requires a sensor update? Are you sure? (y/n) ") != "y":
             logger.info("Did not update API keys for {}".format(fscs_id))
             sys.exit(-1)
+        else:
+            update_api_key = util.generate_api_key()
     body = build_body(fscs_id, update_address, update_name, update_tag, update_api_key)
-    return update_db(body)
-
+    result = update_db(body)
+    if update_api_key:
+        q = util.get_library_data(fscs_id)
+        # Output a new PDF if this was an API key update.
+        logger.info(q)
+        q[0]['api-key'] = update_api_key
+        if len(q) > 0:
+            base_path = pdf.render_html(q[0])
+            pdf.html2pdf(f'{base_path}.html', f'{base_path}.pdf')
+    return result

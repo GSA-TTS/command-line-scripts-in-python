@@ -15,6 +15,11 @@ def add_api_key(df):
     new_df["api_key"] = list(map(lambda x: xp.generate_xkcdpassword(wordlist).replace(" ", "-"), df["fscs_id"].values))
     return new_df
 
+def generate_api_key():
+    wordlist = xp.generate_wordlist(wordfile=xp.locate_wordfile(), min_length=5, max_length=8)
+    return xp.generate_xkcdpassword(wordlist).replace(" ", "-")
+    
+
 def construct_postgrest_url(path):
     protocol = os.getenv("POSTGREST_PROTOCOL")
     host = os.getenv("POSTGREST_HOST")

@@ -82,9 +82,9 @@ BEGIN
     ELSIF key_exists(jsn, 'tag') = TRUE
     THEN
         RETURN do_update(jsn, 'tag');
-    ELSIF key_exists(jsn, 'api-key') = TRUE
+    ELSIF key_exists(jsn, 'api_key') = TRUE
     THEN
-        UPDATE auth.users SET api_key = jsn->>'api-key'
+        UPDATE auth.users SET api_key = jsn->>'api_key'
             WHERE username = jsn->>'fscs_id';
         GET DIAGNOSTICS rows_updated = ROW_COUNT;  
         RETURN json_build_object('updated', 'api_key', 'rows_updated', rows_updated);

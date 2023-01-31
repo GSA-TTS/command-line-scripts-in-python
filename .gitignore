@@ -5,3 +5,5 @@ venv
 .ignore
 extended_*csv
 data/
+letters/*pdf
+letters/*html

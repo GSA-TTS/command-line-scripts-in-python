@@ -20,7 +20,7 @@ def test_insert_library():
 
 def test_build_body_api():
     b = libadmin.build_body("ME0001-001", None, None, None, "api-key-surrogate")
-    assert b == {'fscs_id': "ME0001-001", 'api-key': 'api-key-surrogate'}
+    assert b == {'fscs_id': "ME0001-001", 'api_key': 'api-key-surrogate'}
 
 def test_build_body_addr():
     b = libadmin.build_body("ME0002-001", "123 Sesame Street", None, None, None)
