@@ -1121,4 +1121,181 @@ This removes some code, simplifies things, and makes sure `upload` has a very cl
 
 (Doing this uncovered the fact that our CSV checks were inadequate... it was possible to accept a CSV into `check` that had *too many* headers, and it would pass if a subset of the headers were correct. This has been updated, and unit tests to match. Another argument for thorough TDD as opposed to hacking tests as you go...)
 
-These changes are in [commit ]().
+These changes are in [commit 232c4f7a](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/232c4f7abcfbd2c33c4620f4990aba71fbe251bf).
+
+# Modifying the database
+
+`extend` is now a tool that takes a CSV file, looks for new lines, and uploads those to the database. As it uploads, it creates an API key. We don't see that locally (in a CSV file), which is *OK*. Our original plan included a tool that would output some kind of documentation for users, and we can still write that tool using the database as our source of truth.
+
+What if the admin user discovers a mistake in their spreadsheet? Operations they might need to perform:
+
+1. They might have a bad FSCS Id. This is a primary key... so, they might need to *remove* an entire row, and upload a new row. We need a way to `--delete-library <FSCS_ID>`, which completely removes a library based on FSCS Id. (The admin can then re-upload a CSV with the correct id using `upload`).
+2. They might have a typo in the library name, address, or tag. In this case, we might take a CSV file as input, and use the flags `--update-address <FSCS_ID>`, `--update-name <FSCS_ID>`, and `--update-tag <FSCS_ID>`. That way, the admin still maintains their local spreadsheet, but they're explicitly saying to update *just one field*.
+3. They might want to update the API key for a library. This will mean the library needs to set things up again, so it should not be taken lightly. `--assign-new-api-key <FSCS_ID>` will generate a new, random API key for a library and update the database.
+
+This provides an interface for modifying all aspects of the database. 
+
+`modify` is added in [commit ](). Large chunks of `extend` were pulled into `util` so they could be reused in `modify`.
+
+### Revision: subcommands
+
+After [reading some of the click documentation](https://click.palletsprojects.com/en/8.1.x/commands/#), it looks like subcommands are going to be more useful than flags. And, I suspect that this will come around to a single script with subcommands for everything. But, that just means that the code I've developed in separate files will become libraries to a single command-line script. And, because everything is tested along the way, it means that my command-line interface is just that: an interface to a set of functionality that is independently developed and tested.
+
+Works for me. 
+
+So.
+
+## Deleting items in the DB
+
+At this point, as much of our work is in the API as it is in the command-line tool. On the backend, we need to delete the library from both the `libraries` table as well as the `users` table.
+
+
+```sql
+DROP FUNCTION IF EXISTS api.delete_library;
+CREATE OR REPLACE FUNCTION api.delete_library(jsn JSON)
+	RETURNS JSON
+	LANGUAGE plpgsql
+AS $$
+DECLARE 
+	libraries_deleted INTEGER;
+    users_deleted INTEGER;
+	BEGIN
+		DELETE FROM data.libraries WHERE data.libraries.fscs_id = jsn->>'fscs_id';
+		GET DIAGNOSTICS libraries_deleted = ROW_COUNT;  
+        DELETE FROM auth.users WHERE auth.users.username = jsn->>'fscs_id';
+		GET DIAGNOSTICS users_deleted = ROW_COUNT;  
+		RETURN json_build_object(
+            'libraries_deleted', libraries_deleted, 
+            'users_deleted', users_deleted
+            );
+	END;
+$$
+SECURITY DEFINER
+;
+```
+
+```python
+@cli.command()
+@click.argument('fscs_id')
+def delete(fscs_id):
+    """Deletes a library from the DB with the given FSCS id."""
+    logger.info("DELETE {}".format(fscs_id))
+    url = util.construct_postgrest_url("rpc/delete_library".format(fscs_id))
+    tok = util.get_login_token()
+    r = requests.post(url, 
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": "Bearer {}".format(tok),
+            "Prefer": "params=single-object"
+            },
+        json={'fscs_id': fscs_id})
+    logger.info("delete_library - status code {}".format(r.status_code))
+    logger.info(r.json())
+    return r.json()
+```
+
+As can be seen, I'm returning the JSON structure from the `delete` function so I can work it into unit tests.
+
+(Side note: at this point, I wondered if I wanted some kind of logging on the API side. Like, should I have a table where, on every API action, I record a note about what took place, and by whom? I'm going to skip on this for now, but it would be another tool to help in diagnosing things if anything goes wrong.)
+
+## Updating things in the DB
+
+In the same tool, I'll create a new subcommand, `update`.
+
+I'm going to want to be able to update the address, name, or tag given an FSCS id. 
+
+My plPgSQL is not amazing, but this seems to do the job.
+
+```sql
+
+-- https://stackoverflow.com/questions/28921355/how-do-i-check-if-a-json-key-exists-in-postgres
+CREATE FUNCTION key_exists(some_json JSON, outer_key TEXT)
+RETURNS boolean AS $$
+BEGIN
+    RETURN (some_json->outer_key) IS NOT NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP FUNCTION IF EXISTS do_update;
+CREATE OR REPLACE FUNCTION do_update(jsn JSON, key TEXT)
+	RETURNS JSON
+	LANGUAGE plpgsql
+AS $$
+DECLARE
+    rows_updated INTEGER;
+BEGIN
+        UPDATE data.libraries SET address = jsn->>'address'
+            WHERE fscs_id = jsn->>'fscs_id';
+        GET DIAGNOSTICS rows_updated = ROW_COUNT;  
+        RETURN json_build_object('updated', 'address', 'rows_updated', rows_updated);
+END;
+$$ 
+SECURITY DEFINER;
+
+DROP FUNCTION IF EXISTS api.update_library;
+CREATE OR REPLACE FUNCTION api.update_library(jsn JSON)
+	RETURNS JSON
+	LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF key_exists(jsn, 'address') = TRUE
+    THEN
+        RETURN do_update(jsn, 'address');
+    ELSIF key_exists(jsn, 'name') = TRUE
+    THEN
+        RETURN do_update(jsn, 'name');
+    ELSIF key_exists(jsn, 'tag') = TRUE
+    THEN
+        RETURN do_update(jsn, 'tag');
+    END IF;
+    RETURN json_build_object('updated', '');
+END;
+$$
+SECURITY DEFINER;
+```
+
+I don't know if I need `SECURITY DEFINER` on both the outer and helper functions. Hm.
+
+The Python side looks like
+
+```python
+
+@cli.command()
+@click.argument('fscs_id')
+@click.option('-n', '--update-address', default=None, help="Update the address for a given id.")
+@click.option('-a', '--update-name', default=None, help="Update the name for a given id.")
+@click.option('-t', '--update-tag', default=None, help="Update the tag for a given id.")
+def update(fscs_id, update_address, update_name, update_tag):
+    """Updates fields for a given library based on its FSCS id."""
+    logger.info("UPDATE")
+    body = {'fscs_id': fscs_id}
+    if update_address:
+        body['address'] = update_address
+    elif update_name:
+        body['name'] = update_name
+    elif update_tag:
+        body['tag'] = update_tag
+
+    if update_address or update_name or update_tag:
+        url = util.construct_postgrest_url("rpc/update_library".format(fscs_id))
+        tok = util.get_login_token()
+        r = requests.post(url, 
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer {}".format(tok),
+                "Prefer": "params=single-object"
+                },
+            json=body)
+        logger.info(r.json())
+        return r.json()
+    return {'updated': '', 'rows_updated': 0}
+```
+
+Again, I feel like I've got some code duplication/oddness going on with my parallel `if` statements in the Python and SQL code, but because I have a limited number of columns I might update, I'm going to stick with it (instead of some fancy dictionary/lookup/etc.).
+
+### Updating the API key
+
+Really, updating the API key is not a *fundamentally* different operation than any of hte other fields, but it does warrant a bit of a slowdown. I'll re-use the `update` function, but I'll put a check in there to force the admin to confirm the operation. These changes to the above code and will get picked up and be reflected in the commit.
+
+
+

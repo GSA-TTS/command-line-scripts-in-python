@@ -1,4 +1,5 @@
 import upload
+import util
 
 # To run the tests, build and run the Postgres/Postgrest containers.
 # 
@@ -15,12 +16,12 @@ import upload
 
 # This is dependent on the contents of db.env
 def test_construct_postgrest_url():
-    r = upload.construct_postgrest_url("wiggle")
+    r = util.construct_postgrest_url("wiggle")
     assert r == "http://localhost:3000/wiggle"
 
 def test_get_token():
     try:
-        tok = upload.get_login_token() 
+        tok = util.get_login_token() 
         assert tok != ""
     except:
         assert False, "Could not get a token from Postgrest."
@@ -32,7 +33,7 @@ def test_check_library_exists():
         "name": "not used in test"
     }
     # Returns a boolean
-    r = upload.check_library_exists(row, "fscs_id")
+    r = util.check_library_exists(row, "fscs_id")
     assert r, "EN0001-001 not in the DB. Should have been loaded as test data."
 
 def test_check_library_exists_2():
@@ -42,7 +43,7 @@ def test_check_library_exists_2():
         "name": "not used in test"
     }
     # Returns a boolean
-    r = upload.check_library_exists(row, "fscs_id")
+    r = util.check_library_exists(row, "fscs_id")
     assert not r, "EN0001-002 should not be in the DB."
 
 # This test can only run once on a clean DB.
@@ -53,7 +54,7 @@ def test_insert_library():
         "name": "SPEEDERMOBILE, ENDOR PUBLIC LIBRARY",
         "api_key": "solo-never-shot-first"
     }
-    if not upload.check_library_exists(row, "fscs_id"):
+    if not util.check_library_exists(row, "fscs_id"):
         r = upload.insert_library("libraries", row)
         assert r["result"] == "OK"
     # Assert True if we've already run this against the live DB.
@@ -66,7 +67,7 @@ def test_check_library_exists_3():
         "name": "not used in test"
     }
     # Returns a boolean
-    r = upload.check_library_exists(row, "fscs_id")
+    r = util.check_library_exists(row, "fscs_id")
     assert r, "EN0003-001 should now be in the DB."
 
 def test_library_in_only_once():
@@ -80,5 +81,5 @@ def test_library_in_only_once():
     r = upload.insert_library("libraries", row)
     r = upload.insert_library("libraries", row)
     pk = "fscs_id"
-    r = upload.query_data("libraries", "{}={}".format(pk, "eq.{}".format(row[pk])))
+    r = util.query_data("libraries", "{}={}".format(pk, "eq.{}".format(row[pk])))
     assert len(r) == 1, "EN0004 should only appear once."
