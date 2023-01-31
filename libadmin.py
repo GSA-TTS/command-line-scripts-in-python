@@ -55,7 +55,7 @@ def build_body(fscs_id, update_address, update_name, update_tag, update_api_key)
     elif update_tag:
         body['tag'] = update_tag
     elif update_api_key:
-        body['api-key'] = update_api_key
+        body['api_key'] = update_api_key
     return body
 
 @cli.command()
@@ -79,7 +79,7 @@ def update(fscs_id, update_address, update_name, update_tag, update_api_key):
         q = util.get_library_data(fscs_id)
         # Output a new PDF if this was an API key update.
         logger.info(q)
-        q[0]['api-key'] = update_api_key
+        q[0]['api_key'] = update_api_key
         if len(q) > 0:
             base_path = pdf.render_html(q[0])
             pdf.html2pdf(f'{base_path}.html', f'{base_path}.pdf')

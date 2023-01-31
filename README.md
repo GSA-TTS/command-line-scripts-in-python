@@ -1321,3 +1321,42 @@ I think the solution is to have a function that generates PDFs given a library i
 (Everything is probably going to become part of `libadmin`, but...)
 
 This is good, because it makes it easy to develop and test the PDF generating function. 
+
+[Commit cea04eb5](https://github.com/GSA-TTS/command-line-scripts-in-python/tree/cea04eb579dbbfdf871b2993a9d7762d4b302949) adds in a PDF generation function. It uses `jinja2` to convert a template file into an HTML file, and then uses `pdfkit` to convert the HTML file to PDF. This makes customizing the letter that goes to libraries easy.
+
+The code to generate HTML and PDF gets used in two places:
+
+1. `libadmin.py`
+2. `update.py`
+
+In truth, those might merge into one file at this point. The point is, though, whenever an API key is generated, that is the point at which a PDF file should be created. This way, there is no local "database" (e.g. extra CSV file) laying around with an API key in it, and the PDF is ready for sharing via secure means.
+
+# What is left?
+
+There's more left to do. 
+
+1. There are more tests that can be written.
+2. The `upload` functionality can probably now be moved into the `libadmin` tooling, creating one tool with multiple subcommands. This makes it easier for the user (one less thing to keep track of).
+3. It is probably the case that a package structure (rather than flat structure) would be better. This has grown messy.
+4. It would be nice if the unit tests could spin up the DB automatically.
+5. It is unclear if using a live/production environment will work well with GitHub Actions. On one hand, perhaps a GH Action can easily spin up the container for testing. On the other, it might be necessary to rewrite the tests to use an abstraction over SQLite or similar.
+6. The tooling needs to be documented properly for the user.
+7. The user needs to be involved.
+
+Along the way, a few things were discovered:
+
+1. It is easy to write data processing tools that break. Every input to every function, and every output after processing, need to be checked.
+2. Writing command-line scripts for unit testability requires a bit of thought, so that the parts of the scripts that "do the work" can be tested independently of the command-line interface itself.
+3. It is easy with data-oriented tools to end up with "more than one source of truth." We nearly had a DB and a CSV containing information that might need to be kept in sync. We still do, kinda. (That is, the lib admin can use the `update` tool to change a library name or address, but it might not get changed in a spreadsheet.)
+
+For #3, it feels like the `upload` tool should be updated to do the following:
+
+1. Look for the FSCS id, and if it exists
+2. Check each row, and 
+3. If anything has changed, update the DB from the CSV.
+
+This way, the lib admin can just maintain their spreadsheet as the primary source of information about libraries, and instead of making changes one-by-one, they can change the spreadsheet, download a CSV, and run `update` on the whole CSV file.
+
+It still would have problems, but its a start.
+
+In the end, writing robust, well-engineered, well-tested command-line scripts is hard work. The question isn't whether they do the right thing on any given piece of input... the question is whether they always do the right thing no matter what awful input the user throws at them. This means programming defensively, developing comprehensive tests, and remembering what data you trust, and what data you don't. 
