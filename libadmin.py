@@ -90,13 +90,13 @@ def update(fscs_id, update_address, update_name, update_tag, update_api_key):
 def upload(filename):
     """Uploads a CSV of libraries, assigns API keys, and generates PDF letters."""
     if util.check(filename) != 0:
-        logger.error("CSV is not well formed. Not uploading.")
+        logger.error("upload - CSV is not well formed. Not uploading.")
         sys.exit(-1)
     df = pd.read_csv(filename, header=0)
     extended_df = util.add_api_key(df)
     results = util.check_headers(extended_df, util.EXPECTED_HEADERS + ['api_key'])
     if len(results) != 0:
-        logger.error("Extended CSV has wrong headers. Exiting.")
+        logger.error("upload - extended CSV has wrong headers. Exiting.")
         sys.exit(-1)
     # https://stackoverflow.com/questions/16476924/how-to-iterate-over-rows-in-a-dataframe-in-pandas
     # for ndx, row in extended_df.iterrows():
@@ -105,13 +105,13 @@ def upload(filename):
     # https://stackoverflow.com/questions/31324310/how-to-convert-rows-in-dataframe-in-python-to-dictionaries
     for row in extended_df.to_dict(orient='records'):
         if util.check_library_exists(row, "fscs_id"):
-            logger.info("cli - row exists, not doing insert")
+            logger.info("upload - row exists, not doing insert")
         else:
-            logger.info("cli - row not in db, inserting")
+            logger.info("upload - row not in db, inserting")
             r = util.insert_library("libraries", row)
             base_path = pdf.render_html(row)
             pdf.html2pdf(f'{base_path}.html', f'{base_path}.pdf')
-            logger.info("Inserted {}: {}".format(row["fscs_id"], r))
+            logger.info("upload - inserted {} - {}".format(row["fscs_id"], r))
     return 0
 
 @cli.command()

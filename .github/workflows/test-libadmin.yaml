@@ -1,0 +1,29 @@
+name: test-libadmin
+run-name: ${{ github.actor }} is testing the libadmin script
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      PGRST_JWT_SECRET: isitsecretisitsafeandisitlongenoughtobejwt
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: the-database-password
+      POSTGRES_DB: libraries
+      POSTGREST_PROTOCOL: http
+      POSTGREST_HOST: localhost
+      POSTGREST_PORT: 3000
+      ADMIN_USERNAME: admin
+      ADMIN_PASSPHRASE: onetwothreeahahah
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v3
+      - name: Setup Python 
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Build the Postgres container with crypto
+        run: docker build -t library/postgres:latest -f Dockerfile.pgjwt .
+      - name: Run the containers
+        run: docker compose up
+      - name: Run Python tests
+        run: pytest test_*
