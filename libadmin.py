@@ -1,4 +1,3 @@
-import check
 import click
 import os
 import pandas as pd
@@ -90,12 +89,12 @@ def update(fscs_id, update_address, update_name, update_tag, update_api_key):
 @click.argument('filename')
 def upload(filename):
     """Uploads a CSV of libraries, assigns API keys, and generates PDF letters."""
-    if check.check(filename) != 0:
+    if util.check(filename) != 0:
         logger.error("CSV is not well formed. Not uploading.")
         sys.exit(-1)
     df = pd.read_csv(filename, header=0)
     extended_df = util.add_api_key(df)
-    results = check.check_headers(extended_df, check.EXPECTED_HEADERS + ['api_key'])
+    results = util.check_headers(extended_df, util.EXPECTED_HEADERS + ['api_key'])
     if len(results) != 0:
         logger.error("Extended CSV has wrong headers. Exiting.")
         sys.exit(-1)
@@ -109,7 +108,7 @@ def upload(filename):
             logger.info("cli - row exists, not doing insert")
         else:
             logger.info("cli - row not in db, inserting")
-            r = insert_library("libraries", row)
+            r = util.insert_library("libraries", row)
             base_path = pdf.render_html(row)
             pdf.html2pdf(f'{base_path}.html', f'{base_path}.pdf')
             logger.info("Inserted {}: {}".format(row["fscs_id"], r))

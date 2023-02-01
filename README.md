@@ -1369,6 +1369,7 @@ In the final commit, I do the following:
 
 1. Bring everything underneath one tool.
 2. Write some basic usage documentation.
+3. Add a GH action to run tests.
 
 Now, the installation process is as follows:
 
@@ -1402,6 +1403,15 @@ Commands:
   update  Updates fields for a given library based on its FSCS id.
   upload  Uploads a CSV of libraries, assigns API keys, and generates PDF...
 ```
+
+To check a CSV that is correct, you could run
+
+```
+libadmin check example-csvs/libs1.csv
+```
+
+
+## Running tests, running `libadmin`
 
 To run unit tests, the backend needs to be live. This first needs to be built:
 
