@@ -24,6 +24,10 @@ jobs:
       - name: Build the Postgres container with crypto
         run: docker build -t library/postgres:latest -f Dockerfile.pgjwt .
       - name: Run the containers
-        run: docker compose up
+        run: docker compose up -d
+      - name: Sleep for 30 seconds
+        uses: jakejarvis/wait-action@master
+        with:
+          time: '10s'
       - name: Run Python tests
         run: pytest test_*
