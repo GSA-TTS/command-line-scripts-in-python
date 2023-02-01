@@ -9,7 +9,6 @@ setup(
         'jinja2',
         'pandas',
         'pdfkit',
-        'peewee',
         'pytest',
         'requests',
         'xkcdpass'

@@ -1,6 +1,4 @@
-import check
 import test_check
-import pandas as pd
 import util 
 
 def test_add_api_key():

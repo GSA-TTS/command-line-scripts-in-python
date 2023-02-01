@@ -1,4 +1,3 @@
-import upload
 import util
 
 # To run the tests, build and run the Postgres/Postgrest containers.

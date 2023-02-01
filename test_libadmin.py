@@ -1,8 +1,8 @@
 import libadmin
-import upload
 import util
 
-from lgr import logger
+# FIXME: No logging in this file
+# from lgr import logger
 
 # This test can only run once on a clean DB.
 def test_insert_library():
