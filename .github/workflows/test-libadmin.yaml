@@ -25,9 +25,19 @@ jobs:
         run: docker build -t library/postgres:latest -f Dockerfile.pgjwt .
       - name: Run the containers
         run: docker compose up -d
-      - name: Sleep for 30 seconds
+        # Should I find a way to do a health check? Or, timeout?
+        # https://stackoverflow.com/questions/65949957/how-can-i-wait-for-the-container-to-be-healthy-in-github-action
+      - name: Sleep for 10 seconds
         uses: jakejarvis/wait-action@master
         with:
           time: '10s'
+      - name: Create a venv.
+        run: python3 -m venv venv
+      - name: Activate it 
+        run: source venv/bin/activate
+      - name: Install the app 
+        run: pip install .
+      - name: See if we can get help docs
+        run: libadmin --help
       - name: Run Python tests
         run: pytest test_*
