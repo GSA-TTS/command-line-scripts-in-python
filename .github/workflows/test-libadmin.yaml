@@ -16,7 +16,7 @@ jobs:
       POSTGREST_HOST: localhost
       POSTGREST_PORT: 3000
       ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
-      ADMIN_PASSPHRASE: ${{ secrets.ADMIN_PASSPHRASE }}
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
     steps:
       - name: Check out the code
         uses: actions/checkout@v3
