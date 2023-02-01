@@ -803,7 +803,7 @@ def get_login_token():
     host = os.getenv("POSTGREST_HOST")
     port = os.getenv("POSTGREST_PORT")
     username = os.getenv("ADMIN_USERNAME")
-    passphrase = os.getenv("ADMIN_PASSPHRASE")
+    passphrase = os.getenv("ADMIN_PASSWORD")
     r = requests.post("{}://{}:{}/rpc/login".format(protocol, host, port),
         json={"username": username, "api_key": passphrase},
         headers={"content-type": "application/json"})
@@ -1453,7 +1453,7 @@ jobs:
       POSTGREST_HOST: localhost
       POSTGREST_PORT: 3000
       ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
-      ADMIN_PASSPHRASE: ${{ secrets.ADMIN_PASSPHRASE }}
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
     steps:
       - name: Check out the code
         uses: actions/checkout@v3

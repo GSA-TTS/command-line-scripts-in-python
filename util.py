@@ -48,7 +48,7 @@ def construct_postgrest_url(path):
 # This could also be via config file.  
 def get_login_token():
     username = os.getenv("ADMIN_USERNAME")
-    passphrase = os.getenv("ADMIN_PASSPHRASE")
+    passphrase = os.getenv("ADMIN_PASSWORD")
     logger.info("get_login_token")
     r = requests.post(construct_postgrest_url("rpc/login"),
         json={"username": username, "api_key": passphrase},
