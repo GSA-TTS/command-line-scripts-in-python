@@ -13,7 +13,7 @@ def test_insert_library():
         "api_key": "solo-never-shot-first"
     }
     if not util.check_library_exists(row, "fscs_id"):
-        r = upload.insert_library("libraries", row)
+        r = util.insert_library("libraries", row)
         assert r["result"] == "OK"
     # Assert True if we've already run this against the live DB.
     assert True
