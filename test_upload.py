@@ -55,7 +55,7 @@ def test_insert_library():
         "api_key": "solo-never-shot-first"
     }
     if not util.check_library_exists(row, "fscs_id"):
-        r = upload.insert_library("libraries", row)
+        r = util.insert_library("libraries", row)
         assert r["result"] == "OK"
     # Assert True if we've already run this against the live DB.
     assert True
@@ -77,9 +77,9 @@ def test_library_in_only_once():
         "name": "SPEEDERMOBILE, ENDOR PUBLIC LIBRARY",
         "api_key": "let-the-wookie-win"
     }
-    r = upload.insert_library("libraries", row)
-    r = upload.insert_library("libraries", row)
-    r = upload.insert_library("libraries", row)
+    r = util.insert_library("libraries", row)
+    r = util.insert_library("libraries", row)
+    r = util.insert_library("libraries", row)
     pk = "fscs_id"
     r = util.query_data("libraries", "{}={}".format(pk, "eq.{}".format(row[pk])))
     assert len(r) == 1, "EN0004 should only appear once."

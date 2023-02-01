@@ -1360,3 +1360,68 @@ This way, the lib admin can just maintain their spreadsheet as the primary sourc
 It still would have problems, but its a start.
 
 In the end, writing robust, well-engineered, well-tested command-line scripts is hard work. The question isn't whether they do the right thing on any given piece of input... the question is whether they always do the right thing no matter what awful input the user throws at them. This means programming defensively, developing comprehensive tests, and remembering what data you trust, and what data you don't. 
+
+# Bringing it together
+
+I can't leave the story partially finished.
+
+In the final commit, I do the following:
+
+1. Bring everything underneath one tool.
+2. Write some basic usage documentation.
+
+Now, the installation process is as follows:
+
+```
+git clone https://github.com/GSA-TTS/command-line-scripts-in-python
+cd command-line-scripts-in-python
+python3 -m venv venv
+source venv/bin/activate
+pip install --editable .
+```
+
+which will install it into the `pipenv`.
+
+Then,
+
+```
+libadmin --help
+```
+
+should output 
+
+```
+Usage: libadmin [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  check   Checks a CSV for correctness before uploading.
+  delete  Deletes a library from the DB with the given FSCS id.
+  update  Updates fields for a given library based on its FSCS id.
+  upload  Uploads a CSV of libraries, assigns API keys, and generates PDF...
+```
+
+To run unit tests, the backend needs to be live. This first needs to be built:
+
+```
+docker build -t library/postgres:latest -f Dockerfile.pgjwt .
+```
+
+Then, to run the stack (and clean out any old data):
+
+```
+sudo rm -rf data ; mkdir data ; source db.env ; docker compose up
+```
+
+At this point, the tests can be run:
+
+```
+source db.env ; pytest test_*
+```
+
+The library `EN0001-001` should be in the database (it is inserted by the `init` scripts in the container), so that `libadmin delete` and `libadmin update` will work for exploration purposes.
+
+
+
