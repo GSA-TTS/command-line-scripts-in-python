@@ -1433,5 +1433,52 @@ source db.env ; pytest test_*
 
 The library `EN0001-001` should be in the database (it is inserted by the `init` scripts in the container), so that `libadmin delete` and `libadmin update` will work for exploration purposes.
 
+## GH Actions
 
+Because we built this around `pytest` and a few simple Docker containers, it turns out we can now test everything in GH Actions in a very straight-forward manner:
+
+```yaml
+name: test-libadmin
+run-name: ${{ github.actor }} is testing the libadmin script
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      PGRST_JWT_SECRET: ${{ secrets.PGRST_JWT_SECRET }}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD:  ${{ secrets.POSTGRES_PASSWORD }}
+      POSTGRES_DB: libraries
+      POSTGREST_PROTOCOL: http
+      POSTGREST_HOST: localhost
+      POSTGREST_PORT: 3000
+      ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
+      ADMIN_PASSPHRASE: ${{ secrets.ADMIN_PASSPHRASE }}
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v3
+      - name: Setup Python 
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Build the Postgres container with crypto
+        run: docker build -t library/postgres:latest -f Dockerfile.pgjwt .
+      - name: Run the containers
+        run: docker compose up -d
+      - name: Sleep for 10 seconds
+        run: sleep 10s
+        shell: bash
+      - name: Create a venv.
+        run: python3 -m venv venv
+      - name: Activate it 
+        run: source venv/bin/activate
+      - name: Update pip, just because
+        run: pip install --upgrade pip
+      - name: Install the app 
+        run: pip install .
+      - name: See if we can get help docs
+        run: libadmin --help
+      - name: Run Python tests
+        run: pytest test_*
+```
 

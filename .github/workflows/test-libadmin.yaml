@@ -5,15 +5,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      PGRST_JWT_SECRET: isitsecretisitsafeandisitlongenoughtobejwt
+      # These values are set as secrets on the repository.
+      # They get pulled from the env by the docker-compose file for 
+      # running the containers in the action. 
+      PGRST_JWT_SECRET: ${{ secrets.PGRST_JWT_SECRET }}
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: the-database-password
+      POSTGRES_PASSWORD:  ${{ secrets.POSTGRES_PASSWORD }}
       POSTGRES_DB: libraries
       POSTGREST_PROTOCOL: http
       POSTGREST_HOST: localhost
       POSTGREST_PORT: 3000
-      ADMIN_USERNAME: admin
-      ADMIN_PASSPHRASE: onetwothreeahahah
+      ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
+      ADMIN_PASSPHRASE: ${{ secrets.ADMIN_PASSPHRASE }}
     steps:
       - name: Check out the code
         uses: actions/checkout@v3
